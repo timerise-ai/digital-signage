@@ -7,10 +7,13 @@ between **Firestore** and **Supabase/Postgres**.
 
 A screen in a venue is not a web page. It runs unattended for months on a cheap TV stick, nobody is watching
 the console, and the failure mode is a frozen frame no one notices for a week. This skill was written by the
-engineer who has shipped this signage module and carries the player internals (video stall recovery,
-portrait rotation, TV-browser quirks) and the hardened data/auth model that survive that. The audit of the
-earlier implementation found ten defects; [`references/provenance.md`](references/provenance.md) records each
-one and how the templates fix it.
+engineer who has shipped this signage module; the earlier implementation it was audited against ran the
+screens of a multi-venue booking system. The templates hold the properties that keep a screen alive
+unattended: a player that skips a stalled video or a broken asset on its own and keeps looping through an
+outage, a poll that fires on a stable interval whatever the slide state, a per-device token stored hashed
+and revoked with one row update, and every playlist and route scoped to its venue server-side. The player's
+behaviour contract and the route tests state each one; [`references/provenance.md`](references/provenance.md)
+has the record.
 
 ## Install
 
@@ -40,7 +43,7 @@ mkdir -p ~/.agents/skills
 ln -s ~/.claude/skills/digital-signage ~/.agents/skills/digital-signage
 ```
 
-Update the skill with `git pull` in its directory. The current release is **0.1.5**. See
+Update the skill with `git pull` in its directory. The current release is **0.1.6**. See
 [`CHANGELOG.md`](CHANGELOG.md). The [skills index](https://github.com/timerise-ai/skills) lists the other
 Timerise Skills and how to install them all at once.
 
@@ -71,7 +74,7 @@ the skill stays cheap in context until a topic is actually needed.
 | `references/admin-ui.md` | Upload-then-save, client-side metadata extraction, ad form and fit warning, media library, playlist editor, screen list and provisioning |
 | `references/operations.md` | Heartbeat and health, preview, remote control (reload, blank, emergency takeover), audit log, unpairing |
 | `references/extensions.md` | Dayparting, reusable playlists, proof of play, offline media precaching, multi-zone layouts |
-| `references/provenance.md` | The ten defects found in the earlier implementation and how the templates fix them |
+| `references/provenance.md` | The engineering ledger: what the audit of the earlier implementation changed and how the templates verify it, what was kept on purpose, and what is new in the skill |
 
 The backend seam runs through the reference set: `api-routes.md` and `operations.md` are written against
 Firestore as the canonical backend, and `supabase-backend.md` defines every substitution: the junction table
@@ -82,13 +85,14 @@ styling and i18n stay the host app's; `adaptation.md` is where you wire them in.
 
 These travel with the module and are never optional (see `references/adaptation.md`):
 
-1. **Inline styles on device components.** Signage runs on TV browsers years behind current. Not a style
-   preference; a compatibility requirement.
-2. **Poll interval independent of render state.** Derive it from slide state and the timer is destroyed and
-   recreated on every slide, so a 5-minute refresh behind 10-second slides never fires, and screens silently
-   stop updating.
-3. **Per-display tokens stored hashed.** One shared token across every screen makes revocation impossible;
-   the device is untrusted hardware anyone can walk up to.
+1. **Inline styles on device components.** Signage runs on TV browsers years behind current, so the player
+   cannot depend on the host app's CSS pipeline. Not a style preference; a compatibility requirement.
+2. **Poll interval independent of render state.** The poll runs on a stable timer and reads slide state from
+   a ref, so a refresh longer than a slide still fires on time. The behaviour contract in
+   `references/player-runtime.md` pins the poll's timing and failure handling.
+3. **Per-display tokens stored hashed.** Each screen holds its own token, the server stores only the hash,
+   and revocation is one row update; the device is untrusted hardware anyone can walk up to. The route tests
+   in `references/api-routes.md` cover a revoked token.
 
 Everything else is the host app's: domain names, backend, auth, tenancy, styling, i18n.
 
@@ -108,8 +112,8 @@ skill are meant to be verifiable: if you change a factual claim, say how you ver
 library, the docs, or a reproduction.
 
 Adding, removing or renaming a file in `references/` means updating the quick start and the reference
-directory table in `SKILL.md`, the file table above, and any relative cross-links. The odd-looking parts of
-the templates encode documented defects, and `references/provenance.md` is the ledger that must stay truthful:
+directory table in `SKILL.md`, the file table above, and any relative cross-links. Every odd-looking part of
+the templates is there for a reason, and `references/provenance.md` is the ledger that must stay truthful:
 read it before simplifying anything, and add an entry for anything you change. Commits follow Conventional
 Commits and releases follow [STANDARD.md](https://github.com/timerise-ai/skills/blob/main/STANDARD.md) in the
 index; `CLAUDE.md` carries the full editing conventions.

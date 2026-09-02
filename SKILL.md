@@ -10,9 +10,11 @@ description: >
   URL, screen health monitoring, or remote screen control, (3) the user mentions:
   digital signage, display screens, TV player, ad playlist, signage module,
   kiosk display, screen management, proof of play. Carries player internals
-  (video stall recovery, portrait rotation, TV-browser quirks) and a data/auth
-  model, both hardened against the defects the audit found. Framework-specific to
-  Next.js App Router; backend-agnostic between Firestore and Postgres/Supabase.
+  that recover from video stalls, rotate for portrait screens and survive
+  TV-browser quirks, and a data/auth model with hashed per-device tokens and
+  venue-scoped playlists, each pinned by a behaviour contract or a route test.
+  Framework-specific to Next.js App Router; backend-agnostic between Firestore
+  and Postgres/Supabase.
 ---
 
 # Digital Signage — Displays + Ads
@@ -82,11 +84,11 @@ down. Everything operational rides that channel.
 
 ## Hard rules
 
-> **Never derive the poll interval from render state.** If the fetch callback
-> closes over the current slide index and the interval effect depends on it, the
-> timer is destroyed and recreated on every slide — so a 5-minute refresh behind
-> 10-second slides **never fires** and screens silently stop updating. Poll on a
-> stable interval; read slide state from a ref.
+> **Never derive the poll interval from render state.** Poll on a stable
+> interval and read slide state from a ref. A timer whose effect depends on the
+> slide index is destroyed and recreated on every slide, so a refresh longer
+> than a slide would never fire; the behaviour contract pins the poll's timing
+> to wall-clock time.
 
 > **Never overload one boolean as both "paused" and "deleted".** Use `active` for
 > operator intent and a separate `deletedAt` for lifecycle, or a deleted item
@@ -154,4 +156,4 @@ functions.
 | Back-office UI | admin, upload, media library, playlist editor, provisioning URL | [admin-ui.md](references/admin-ui.md) |
 | Health, preview, remote control | heartbeat, last seen, offline, preview, reload, blank, emergency takeover, audit log | [operations.md](references/operations.md) |
 | Scheduling, reuse, reporting | dayparting, start date, campaign, shared playlist, proof of play, precache, multi-zone | [extensions.md](references/extensions.md) |
-| Why the templates differ from a naive port | provenance, defect, hardening, rationale | [provenance.md](references/provenance.md) |
+| Why the templates differ from a naive port | provenance, ledger, rationale, kept, added | [provenance.md](references/provenance.md) |

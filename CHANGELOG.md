@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-09-02
+
+Wording release. Templates and technical content are unchanged from 0.1.5.
+
+### Changed
+- The front door (`README.md`, `SKILL.md`, `CLAUDE.md`) describes the module by the
+  properties the behaviour contract and the route tests verify: a player that skips a
+  stalled video on its own, a poll on a stable interval, hashed per-device tokens,
+  venue-scoped playlists. The audit record stays in `references/provenance.md`.
+
 ## [0.1.5] - 2026-09-02
 
 Wording release. The origin and audit statements across the skill follow section 2 of
