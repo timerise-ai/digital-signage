@@ -157,3 +157,5 @@ functions.
 | Health, preview, remote control | heartbeat, last seen, offline, preview, reload, blank, emergency takeover, audit log | [operations.md](references/operations.md) |
 | Scheduling, reuse, reporting | dayparting, start date, campaign, shared playlist, proof of play, precache, multi-zone | [extensions.md](references/extensions.md) |
 | Why the templates differ from a naive port | provenance, ledger, rationale, kept, added | [provenance.md](references/provenance.md) |
+
+Part of the [Timerise Skills](https://github.com/timerise-ai/skills) index, which lists the sibling skills.

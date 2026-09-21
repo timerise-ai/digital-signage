@@ -10,7 +10,7 @@ The skill was written by the engineer who has shipped this module; `references/p
 
 ## Structure
 
-- `SKILL.md` — entry point. Frontmatter (`name`, `description`) drives skill discovery/triggering. The body carries the architecture diagram, the critical facts, the hard rules, and the **reference directory table** that maps trigger keywords to files in `references/`.
+- `SKILL.md` — entry point. Frontmatter (`name`, `description`) drives skill discovery/triggering. The body carries the architecture diagram, the critical facts, the hard rules, the **reference directory table** that maps trigger keywords to files in `references/`, and a closing line linking the skills index.
 - `references/*.md` — one topic per file, loaded on demand by the consuming agent. `adaptation.md` (the seam contract with the host app) and `data-model.md` are the design entry points; the rest cover backends, API routes, pairing, the player runtime, admin UI, operations, and extensions.
 
 ## Editing conventions
