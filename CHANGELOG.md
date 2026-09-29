@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-09-29
+
+Documentation release. Templates and technical content are unchanged from 0.1.7; the skill now follows the
+index's skill standard throughout.
+
+### Changed
+
+- The hard rules in `SKILL.md` and the non-negotiables in `README.md` are one list of seven, in the same
+  order, restated in `references/adaptation.md` and `CLAUDE.md`: inline styles on device components, the poll
+  interval independent of render state, per-display tokens stored hashed, server-derived tenant scope
+  answering 404, `active` separate from `deletedAt`, the image timer started at `onLoad`, and durable screen
+  state as `mode` with the reload ack persisted first. Each was already a hard rule or a non-negotiable, so no
+  template changes behaviour.
+- Plain punctuation across every markdown file, code comments included. Glyphs the device or admin UI renders
+  are kept through escapes, so what a screen shows is unchanged.
+- `SKILL.md`, `README.md` and `CLAUDE.md` follow the standard's section shapes: the frontmatter description
+  in its fixed order with more trigger vocabulary, the README intro, manual install, full file table and
+  contributing paragraphs, and `CLAUDE.md` in three sections.
+- `references/provenance.md` marks the operations layer as designed in the skill and never run in production.
+
 ## [0.1.7] - 2026-09-21
 
 Wording release. The skill content is unchanged from 0.1.6.
