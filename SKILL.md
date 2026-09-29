@@ -1,23 +1,25 @@
 ---
 name: digital-signage
 description: >
-  Build a digital-signage module in a Next.js App Router app on Firestore or
-  Supabase — ad media library, per-screen playlists, display registry, device
-  pairing, and a fullscreen TV player. Use when: (1) building or extending
-  in-venue screens, digital menu boards, lobby/waiting-room displays, or an
-  advertising-slot system, (2) implementing playlist scheduling, media upload
-  with duration and orientation handling, device pairing by PIN or provisioning
-  URL, screen health monitoring, or remote screen control, (3) the user mentions:
-  digital signage, display screens, TV player, ad playlist, signage module,
-  kiosk display, screen management, proof of play. Carries player internals
-  that recover from video stalls, rotate for portrait screens and survive
-  TV-browser quirks, and a data/auth model with hashed per-device tokens and
-  venue-scoped playlists, each pinned by a behaviour contract or a route test.
-  Framework-specific to Next.js App Router; backend-agnostic between Firestore
-  and Postgres/Supabase.
+  Build a digital-signage module in a Next.js App Router app: an ad media
+  library, per-screen playlists, a display registry, device pairing and a
+  fullscreen TV player. Use when: (1) building or extending in-venue screens,
+  digital menu boards, lobby or waiting-room displays, or an advertising-slot
+  system, (2) implementing playlist scheduling, media upload with duration and
+  orientation handling, device pairing by PIN or provisioning URL, screen
+  health monitoring, or remote screen control, (3) auditing a player that
+  freezes, never refreshes or shows portrait media sideways, (4) the user
+  mentions: digital signage, display screens, TV player, ad playlist, signage
+  module, kiosk display, screen management, proof of play, /api/display/pair,
+  /api/display/playlist, ETag, 304 Not Modified, SIGNAGE_TOKEN_PEPPER, wake
+  lock, video stall, firebase-admin, Supabase RLS. Carries player internals that recover from video
+  stalls, rotate for portrait screens and survive TV-browser quirks, and a data and auth model with hashed
+  per-device tokens and venue-scoped playlists, each pinned by a behaviour contract or a route test.
+  Next.js App Router; the data layer is a seam, with Firestore and Supabase/Postgres both carried. Not web
+  ad serving and not an interactive kiosk.
 ---
 
-# Digital Signage — Displays + Ads
+# Digital Signage: Displays and Ads
 
 A screen in a venue is not a web page. It runs unattended for months on a cheap
 TV stick, nobody is watching the console, and the failure mode is a frozen frame
@@ -34,48 +36,49 @@ App Router with Firestore or Supabase/Postgres.
 
 ## When NOT to use
 
-- **Web ad serving** (impressions, bidding, tracking pixels, third-party tags) —
+- **Web ad serving** (impressions, bidding, tracking pixels, third-party tags):
   a different problem with different infrastructure.
 - **Interactive kiosks** where the user taps to transact. Signage is one-way.
 - **A single embedded video** on a marketing page. Use a `<video>` tag.
-- Generic Next.js, CMS, or auth setup — assumed to exist.
+- Generic Next.js, CMS, or auth setup, which is assumed to exist.
 
 ## Architecture
 
 ```
  ADMIN (browser)                     SERVER                      DEVICE (TV)
- ─────────────────                   ──────                      ───────────
- media upload ──────────────► object storage ◄──── public/signed URL ─┐
- ad CRUD ─────────┐                                                   │
- playlist edit ───┼──► /api/admin/*  ──► ads + displays ──┐           │
- issue command ───┘      (staff auth)      (scoped)       │           │
-                                                          ▼           │
- pair screen ◄──── PIN ────────────► /api/display/pair    │           │
-                                     mints per-display    │           │
-                                     token                ▼           │
-                                    /api/display/playlist ─── poll ───┤
-                                     ▲ resolves adIds → ads           │
-                                     └── carries telemetry up,        │
-                                         commands down          player loop
+ ---------------                     ------                      -----------
+ media upload ---------------> object storage <---- public/signed URL --+
+ ad CRUD ---------+                                                     |
+ playlist edit ---+--> /api/admin/*  --> ads + displays --+             |
+ issue command ---+      (staff auth)      (scoped)       |             |
+                                                          v             |
+ pair screen <----- PIN -----------> /api/display/pair    |             |
+                                     mints per-display    |             |
+                                     token                v             |
+                                    /api/display/playlist <--- poll ----+
+                                     ^ resolves adIds to ads            |
+                                     +-- carries telemetry up,          |
+                                         commands down            player loop
 ```
 
 One request type sustains the whole runtime: the device polls
 `/api/display/playlist`, sending telemetry up and receiving content and commands
 down. Everything operational rides that channel.
 
-## Critical facts — read before designing anything
+## Critical facts
 
 1. **The playlist is an ordered array on the display, not a separate entity.**
-   `display.adIds: string[]` *is* the playlist — order is free, no joins, one
+   `display.adIds: string[]` *is* the playlist: order is free, no joins, one
    read. Introduce a standalone playlist entity only when the same content must
    run on several screens; see [data-model.md](references/data-model.md) for the
    trade-off and [extensions.md](references/extensions.md) for the migration.
-2. **Poll; do not stream.** A 30–60 s poll is cheaper, survives sleeping network
-   stacks, and reconnects for free. Realtime is an optional upgrade, not the
-   baseline. Cache the response with an ETag or you will pay for a full read per
+2. **Poll; do not stream.** A 30 to 60 s poll is cheaper, survives sleeping
+   network stacks, and reconnects for free. Realtime is an optional upgrade, not
+   the baseline. Cache the response with an ETag or you pay for a full read per
    screen per poll.
-3. **Media uploads go browser → storage directly**, never through an API route.
-   Route handlers have body-size limits and burn compute proxying bytes.
+3. **Media uploads go from the browser straight to storage**, never through an
+   API route. Route handlers have body-size limits and burn compute proxying
+   bytes.
 4. **The device is untrusted and unattended.** It holds a long-lived credential
    in `localStorage` on hardware anyone can walk up to. That credential must be
    per-screen and revocable.
@@ -84,65 +87,60 @@ down. Everything operational rides that channel.
 
 ## Hard rules
 
+> **Never style a device component through the host's CSS pipeline.** Use inline
+> styles: TV browsers run years behind current, and a stylesheet or purge step
+> must not be able to break a screen nobody is watching.
+
 > **Never derive the poll interval from render state.** Poll on a stable
 > interval and read slide state from a ref. A timer whose effect depends on the
-> slide index is destroyed and recreated on every slide, so a refresh longer
-> than a slide would never fire; the behaviour contract pins the poll's timing
-> to wall-clock time.
+> slide index is recreated on every slide, so a refresh longer than a slide
+> would never fire; the behaviour contract pins the poll to wall-clock time.
+
+> **Never issue one shared token to every screen.** Mint a per-display token at
+> pairing, store only its hash, and make revocation a single row update.
+
+> **Never trust a client-supplied tenant/location scope.** Derive it server-side
+> from the staff session or the display row the token resolves to, and enforce
+> it on every `[id]` route, returning **404, not 403**, so ids cannot be probed.
 
 > **Never overload one boolean as both "paused" and "deleted".** Use `active` for
 > operator intent and a separate `deletedAt` for lifecycle, or a deleted item
 > reappears the moment someone toggles it back on.
 
-> **Never trust a client-supplied tenant/location scope.** Derive it server-side
-> from the authenticated staff session or from the display row the token
-> resolves to, and enforce it on every `[id]` route — returning **404, not 403**,
-> so ids cannot be probed.
-
-> **Never issue one shared token to every screen.** Mint a per-display token at
-> pairing, store only its hash, and make revocation a single row update.
-
 > **Never start an image's duration timer before `onLoad`.** On a slow TV the
 > slide will otherwise expire before it is visible.
 
-> **Never carry durable screen state in a one-shot command.** Blank and
-> takeover must survive the device's daily reload and a power cycle — deliver
-> them as state on every poll (`mode`), and keep the ack-cleared command
-> channel for genuine one-shots like reload. And any command whose effect is a
-> reload must persist its ack **before** reloading, or the server re-delivers
-> it forever.
+> **Never carry durable screen state in a one-shot command.** Deliver blank and
+> takeover as `mode` on every poll so they survive the daily reload and a power
+> cycle; keep the ack-cleared channel for one-shots like reload, and persist a
+> reload's ack **before** reloading, or the server re-delivers it forever.
 
 ## Quick start
 
-0. Fill in the seam contract for your app and confirm the domain rename —
+0. Fill in the seam contract for your app and confirm the domain rename:
    [adaptation.md](references/adaptation.md).
-1. Model the entities and pick array-vs-junction —
+1. Model the entities and pick array or junction table:
    [data-model.md](references/data-model.md).
-2. Create tables/collections, indexes, security rules and the media bucket —
+2. Create tables or collections, indexes, security rules and the media bucket:
    [firestore-backend.md](references/firestore-backend.md) or
    [supabase-backend.md](references/supabase-backend.md).
 3. Build the device and admin endpoints, including pairing and token
-   verification — [api-routes.md](references/api-routes.md).
-4. Get a screen paired — [pairing.md](references/pairing.md) — then drop in the
-   player loop — [player-runtime.md](references/player-runtime.md).
-5. Build the back-office: media library, display list, playlist editor —
+   verification: [api-routes.md](references/api-routes.md).
+4. Get a screen paired with [pairing.md](references/pairing.md), then drop in the
+   player loop from [player-runtime.md](references/player-runtime.md).
+5. Build the back-office: media library, display list, playlist editor, from
    [admin-ui.md](references/admin-ui.md).
-6. Add health, preview and remote control before going live —
+6. Add health, preview and remote control before going live:
    [operations.md](references/operations.md).
 7. Verify against the behaviour contract table in
-   [player-runtime.md](references/player-runtime.md) — pull the network cable,
-   delete the current ad mid-loop, issue a reload — and ship the
+   [player-runtime.md](references/player-runtime.md) (pull the network cable,
+   delete the current ad mid-loop, issue a reload) and ship the
    player-machine tests as regression cover.
 
 ## Reference directory
 
-Load the reference matching the trigger keywords. For greenfield design, read
-`data-model.md` first.
-
-Code in `api-routes.md` and `operations.md` is written against Firestore as
-the canonical backend; `supabase-backend.md` defines every substitution — the
-junction table replacing `adIds`, and SQL equivalents of the service
-functions.
+Load the reference matching the task; for greenfield design, read `data-model.md` first. Code in
+`api-routes.md` and `operations.md` targets Firestore; `supabase-backend.md` defines every substitution.
 
 | Scenario | Trigger keywords | Reference |
 |---|---|---|

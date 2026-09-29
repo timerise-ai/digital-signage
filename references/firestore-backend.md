@@ -8,14 +8,14 @@ here is server-side except the upload helper, which is deliberately client-side.
 **Neither collection gets a rules block.** Default deny for all client SDK
 access; every read and write goes through an API route using the Admin SDK,
 which bypasses rules. The rules file is for collections the browser touches
-directly — signage is not one of them.
+directly, and signage is not one of them.
 
 The one exception is media: TVs load ad files straight from Storage, so the
 `ads/` prefix is public-read.
 
 ## Lazy admin client
 
-Never export an initialized instance — that runs credential parsing at import
+Never export an initialized instance: that runs credential parsing at import
 time and breaks builds where the env is absent.
 
 ```ts
@@ -55,7 +55,7 @@ export function getAdminDb(): Firestore {
 ## Service module
 
 `modules/signage/ads.server.ts`. Take `db` as a parameter on anything with real
-logic — that is what makes it testable without an emulator.
+logic, because that is what makes it testable without an emulator.
 
 ```ts
 import 'server-only';
@@ -93,7 +93,7 @@ export async function listAds(
 
 /**
  * Resolve exactly the ads a playlist references, preserving `adIds` order.
- * Chunked at 30 — the `in` operator's limit. Never "list newest N and filter":
+ * Chunked at 30, the `in` operator's limit. Never "list newest N and filter":
  * that silently drops older ads from playlists once the library outgrows N.
  */
 export async function getAdsByIds(
@@ -138,7 +138,7 @@ export async function updateAd(id: string, data: Partial<AdInput>): Promise<void
   });
 }
 
-/** Soft delete — reversible only by an admin, invisible to lists. */
+/** Soft delete: reversible only by an admin, invisible to lists. */
 export async function softDeleteAd(id: string): Promise<void> {
   await getAdminDb().collection(ADS).doc(id).update({
     deletedAt: FieldValue.serverTimestamp(),
@@ -172,7 +172,7 @@ export async function purgeAd(id: string): Promise<void> {
 }
 ```
 
-`arrayRemove` strips **all** occurrences, which is correct — a purged ad should
+`arrayRemove` strips **all** occurrences, which is correct: a purged ad should
 vanish from every position in every loop.
 
 Displays follow the same shape in `modules/signage/displays.server.ts`:
@@ -180,11 +180,11 @@ Displays follow the same shape in `modules/signage/displays.server.ts`:
 `purgeDisplay`, plus the pairing and telemetry writers in
 [api-routes.md](api-routes.md) and [operations.md](operations.md).
 `createDisplay` writes `mode: { kind: 'play' }`, `command: null`, and
-`deletedAt: null` explicitly — the equality filter and the player both rely on
+`deletedAt: null` explicitly, because the equality filter and the player both rely on
 the fields existing.
 
 **Always `orderBy` a list query.** Without it, row order is whatever Firestore
-happens to return, and it can change between deploys — anything that leans on
+happens to return, and it can change between deploys, so anything that leans on
 it (a UI list, an export, "the first screen") shifts silently.
 
 ## Server-side storage deletion
@@ -207,12 +207,12 @@ export async function deleteStorageObject(storagePath: string): Promise<void> {
 }
 ```
 
-Call it on hard delete **and when a file is replaced during an edit** — the old
+Call it on hard delete **and when a file is replaced during an edit**: the old
 object is otherwise orphaned and billed forever.
 
 ## Client upload
 
-Media goes browser → Storage directly. Use the **resumable** API so the UI can
+Media goes from the browser to Storage directly. Use the **resumable** API so the UI can
 show progress: a 10 MB video over venue Wi-Fi is not instant.
 
 ```ts
@@ -262,7 +262,7 @@ loop, and without it you pay egress for the same file forever.
 ## Rules and indexes
 
 ```js
-// firestore.rules — no `ads` or `displays` block anywhere in this file.
+// firestore.rules: no `ads` or `displays` block anywhere in this file.
 // Absence is the policy: default deny for clients, Admin SDK for everything.
 rules_version = '2';
 service cloud.firestore {
@@ -320,6 +320,6 @@ displays" reverse lookup.
 - **Equality filters need the field to exist.** `where('deletedAt', '==', null)`
   skips documents with no `deletedAt` field at all, so always write `null`
   explicitly on create.
-- **`in` queries cap at 30 ids** — chunk, as `getAdsByIds` does.
+- **`in` queries cap at 30 ids**: chunk, as `getAdsByIds` does.
 - **`array-contains` allows one per query.** You cannot filter `locationIds` and
   `adIds` in the same query; do the second pass in memory.

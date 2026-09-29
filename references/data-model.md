@@ -15,7 +15,7 @@ Three, plus an optional fourth:
 | `Ad` | A media asset: one image, GIF, or video, with playback duration and targeting. |
 | `Display` | A physical screen: its identity, playlist, pairing credential, and health. |
 | `SignageLog` | Audit trail of who changed what. See [operations.md](operations.md). |
-| `Playlist` *(optional)* | A named, reusable ordered list. Only when screens share content — see [extensions.md](extensions.md). |
+| `Playlist` *(optional)* | A named, reusable ordered list. Only when screens share content; see [extensions.md](extensions.md). |
 
 ## Types
 
@@ -31,13 +31,13 @@ export interface Ad {
   type: AdType;
   /** Public or signed URL the device loads. */
   url: string;
-  /** Storage object key — required to delete or replace the file. */
+  /** Storage object key, required to delete or replace the file. */
   storagePath: string;
   /** Seconds on screen. Ignored for video, which plays to its natural end. */
   duration: number;
   /** Operator intent: is this ad in rotation? Toggled from the admin UI. */
   active: boolean;
-  /** Lifecycle: set once, never unset. Distinct from `active` — see below. */
+  /** Lifecycle: set once, never unset. Distinct from `active`; see below. */
   deletedAt: string | null;
   /** Tenant scope. An ad may run at several locations. */
   locationIds: string[];
@@ -116,7 +116,7 @@ write a token hash or forge telemetry.
 ## The wire payload
 
 Deliberately narrower than `Ad`. The device gets what it needs to render and
-nothing else — no storage paths, no targeting, no file sizes.
+nothing else: no storage paths, no targeting, no file sizes.
 
 ```ts
 export interface AdItem {
@@ -139,9 +139,9 @@ export interface DisplayInfo {
 export interface PlaylistResponse {
   display: DisplayInfo | null;
   ads: AdItem[];
-  /** Shown when the playlist is empty — a venue logo beats a black screen. */
+  /** Shown when the playlist is empty: a venue logo beats a black screen. */
   fallbackLogoUrl: string | null;
-  /** Durable state, sent on every poll — no acknowledgement needed. */
+  /** Durable state, sent on every poll, no acknowledgement needed. */
   mode: DisplayMode;
   command: DisplayCommand | null;
 }
@@ -153,7 +153,7 @@ export interface PlaylistResponse {
 
 | | Embedded array | Junction table |
 |---|---|---|
-| Ordering | Free — array index | `position` column, renumber on reorder |
+| Ordering | Free, array index | `position` column, renumber on reorder |
 | Reads to render | 1 display + N ads | 1 display + 1 join + N ads |
 | Reorder write | One field update | Multi-row transaction |
 | Same list on many screens | Copy per screen | One playlist, many screens |
@@ -163,7 +163,7 @@ export interface PlaylistResponse {
 **Start with the array.** It is one read, ordering is free, and the reorder
 write is atomic. In Firestore it is the only sane choice.
 
-**In Postgres, use `display_ads(display_id, ad_id, position)` anyway** — you get
+**In Postgres, use `display_ads(display_id, ad_id, position)` anyway**: you get
 cascade delete for free (fixing dangling references structurally) and the
 migration to shared playlists later is a schema change instead of a rewrite. The
 API surface stays identical: the route reads the junction and returns the same
@@ -178,9 +178,9 @@ changing a campaign on ten screens means ten edits. See
 
 They are routinely collapsed into one boolean. Do not do it.
 
-- `active: false` — **operator intent.** "Pause this, I will bring it back."
+- `active: false`: **operator intent.** "Pause this, I will bring it back."
   Reversible from the UI, and the operator expects it to be.
-- `deletedAt: string` — **lifecycle.** "This is gone." Set once. Filtered out of
+- `deletedAt: string`: **lifecycle.** "This is gone." Set once. Filtered out of
   every list query.
 
 Collapse them and a deleted ad shows up in the library as merely inactive, where
@@ -188,8 +188,8 @@ toggling Active silently resurrects it. Two fields, two meanings, no ambiguity.
 
 **Both delete paths:**
 
-- `DELETE /api/admin/ads/:id` → soft: set `deletedAt`, leave the file in storage.
-- `DELETE /api/admin/ads/:id?permanent=true` → hard: remove the row, **delete the
+- `DELETE /api/admin/ads/:id` is soft: set `deletedAt`, leave the file in storage.
+- `DELETE /api/admin/ads/:id?permanent=true` is hard: remove the row, **delete the
   storage object**, and **strip the id from every `display.adIds`**. All three, or
   you leak storage and break playlists.
 
@@ -200,11 +200,11 @@ Contract the player and the API both honour:
 1. **Order is `adIds` order.** Duplicates play twice; that is a valid loop.
 2. **Inactive, deleted, and missing ads are dropped silently** at resolution
    time. A playlist can legitimately resolve to zero items.
-3. **Empty playlist is not an error** — the player shows `fallbackLogoUrl`, or
+3. **Empty playlist is not an error:** the player shows `fallbackLogoUrl`, or
    black if there is none.
 4. **`duration` applies to `image` and `gif` only.** Video plays to its natural
    end, capped by a safety timeout ([player-runtime.md](player-runtime.md)).
-5. **Resolve exactly the referenced ads** — fetch by the ids in `adIds`, never
+5. **Resolve exactly the referenced ads:** fetch by the ids in `adIds`, never
    "list the newest N ads and filter". A capped list query silently drops older
    ads from playlists once the library outgrows the cap.
 
@@ -212,10 +212,10 @@ Contract the player and the API both honour:
 
 Note the deliberate asymmetry:
 
-- **`Ad.locationIds: string[]`** — one asset can run in many venues.
-- **`Display.locationId: string`** — a screen hangs in exactly one place.
+- **`Ad.locationIds: string[]`**: one asset can run in many venues.
+- **`Display.locationId: string`**: a screen hangs in exactly one place.
 
 Scope is **always** derived server-side: from the staff session for admin
 routes, and from the display row the token resolves to for device routes. The
-device never sends a location id — it sends a token, and the server looks up
+device never sends a location id. It sends a token, and the server looks up
 where that screen lives. See [api-routes.md](api-routes.md).

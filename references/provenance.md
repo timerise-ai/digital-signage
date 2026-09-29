@@ -22,7 +22,7 @@ slide index, and the interval effect listed that callback in its dependencies.
 Every slide change tore down the interval and started a new one.
 
 With a five-minute refresh behind ten-second slides, the timer never reached
-zero. Screens only picked up new content when someone reloaded them — while the
+zero. Screens only picked up new content when someone reloaded them, while the
 code, the tests anyone would write, and the admin UI all looked correct. This is
 the most consequential bug in the module and the least visible: it presents as
 "the screens seem slow to update", months apart, with no error anywhere.
@@ -32,7 +32,7 @@ from a ref. See [player-runtime.md](player-runtime.md).
 
 ### 2. A side effect inside a state updater
 
-Playlist reconciliation ran inside a `setAds(prev => …)` updater, and called
+Playlist reconciliation ran inside a `setAds(prev => ...)` updater, and called
 `setCurrentIndex` from within it. React may invoke an updater more than once for
 the same base state; a nested state write then fires twice.
 
@@ -42,8 +42,8 @@ regression test for defect 1 possible.
 
 ### 3. `active` meaning two different things
 
-Soft delete set `active: false` — the same field the admin form's Active toggle
-writes — and the list query filtered on neither. A deleted ad appeared in the
+Soft delete set `active: false`, the same field the admin form's Active toggle
+writes, and the list query filtered on neither. A deleted ad appeared in the
 library as merely paused, and toggling it back on resurrected it.
 
 **Shipped:** `active` is operator intent, `deletedAt` is lifecycle. Three states
@@ -70,7 +70,7 @@ resolves its screen from its own token, so the ambiguity is gone entirely.
 ### 6. Tenant scope unchecked on `[id]` routes
 
 Collection routes derived the location from the staff session, but the `[id]`
-routes did not re-check it — so any admin could read, edit, or permanently
+routes did not re-check it, so any admin could read, edit, or permanently
 delete another venue's ads and screens by id. A scope helper existed in the
 codebase and was used on two other modules; signage simply missed it.
 
@@ -80,7 +80,7 @@ codebase and was used on two other modules; signage simply missed it.
 ### 7. Storage objects orphaned forever
 
 A delete helper was written, exported, and never called. Every permanent delete
-and every file replacement left its object in storage — up to 10 MB each, billed
+and every file replacement left its object in storage, up to 10 MB each, billed
 indefinitely, with no way to tell which were still referenced.
 
 **Shipped:** purge deletes the row, the object, and the playlist references
@@ -92,19 +92,19 @@ Removing an ad left its id in every playlist that referenced it. The player
 dropped unresolvable ids silently, so loops quietly got shorter.
 
 **Shipped:** purge strips the id from every playlist in the same batch. On
-Postgres, `on delete cascade` makes it structurally impossible — the main reason
+Postgres, `on delete cascade` makes it structurally impossible, the main reason
 [supabase-backend.md](supabase-backend.md) uses a junction table.
 
 ### 9. One token for every screen, handed out for a PIN
 
 A single deployment-wide token lived in an environment variable. The pairing
-endpoint returned it verbatim to anyone who guessed a 4–6 digit venue PIN, with
+endpoint returned it verbatim to anyone who guessed a 4 to 6 digit venue PIN, with
 no rate limiting, and it granted access to every venue's playlist. Revoking one
 screen meant rotating the variable and re-pairing all of them.
 
 **Shipped:** a per-display token minted at pairing, stored only as a hash,
 rate-limited issuance, and revocation as a single field write. The device sends
-its token and nothing else — it cannot name a venue it should not see.
+its token and nothing else, so it cannot name a venue it should not see.
 
 ### 10. No validation
 
@@ -123,7 +123,7 @@ retained:
 - **Inline styles on device components.** Reads as a mistake, is not: signage
   runs on TV browsers years behind current, and inline styles remove any chance
   a stylesheet or purge step breaks a screen nobody is watching.
-- **Polling rather than realtime.** A 30–60 second poll survives sleeping
+- **Polling rather than realtime.** A 30 to 60 second poll survives sleeping
   network stacks, captive portals and NAT, and reconnects for free. With an ETag
   it is cheap. Realtime is documented as an upgrade, not the default.
 - **Direct browser-to-storage upload.** Route handlers have body-size limits and
@@ -138,14 +138,15 @@ retained:
 
 ## Added
 
-Capabilities the earlier implementation did not have, built because their
-absence is what makes a signage module unmanageable past a handful of screens:
-health, preview, remote control, audit log. See [operations.md](operations.md).
+Designed in the skill and never run in production: capabilities the earlier
+implementation did not have, built because their absence is what makes a
+signage module unmanageable past a handful of screens: health, preview, remote
+control, audit log. See [operations.md](operations.md).
 
 Remote control was itself hardened after a second audit of the templates:
 
 - **Durable state and one-shot commands are separate channels.** Blank and
-  takeover are `mode`, held on the display row and delivered on every poll —
+  takeover are `mode`, held on the display row and delivered on every poll:
   a one-shot command evaporates on the device's daily reload, silently
   un-blanking a screen an operator meant to keep dark. Only `reload` stays in
   the ack-cleared command channel.
@@ -163,10 +164,10 @@ player state machine, are pure functions callable without a database or a DOM.
 
 Fix in this order. The first item is the one users are already experiencing:
 
-1. **Defect 1** — the poll interval. Screens are not updating.
-2. **Defect 6** — cross-tenant access on `[id]` routes.
-3. **Defect 9** — the shared token.
-4. **Defects 3, 4, 8** — data integrity: soft-delete semantics, the list cap,
+1. **Defect 1**: the poll interval. Screens are not updating.
+2. **Defect 6**: cross-tenant access on `[id]` routes.
+3. **Defect 9**: the shared token.
+4. **Defects 3, 4, 8**: data integrity: soft-delete semantics, the list cap,
    dangling references.
-5. **Defects 2, 5, 7, 10** — correctness and hygiene.
+5. **Defects 2, 5, 7, 10**: correctness and hygiene.
 6. Then the operations layer, which is what makes the rest visible.

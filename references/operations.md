@@ -28,7 +28,7 @@ export async function recordHeartbeat(
 }
 ```
 
-Derive status rather than storing it — a stored status needs a cron to go stale,
+Derive status rather than storing it: a stored status needs a cron to go stale,
 and a cron that fails makes every screen look healthy.
 
 ```ts
@@ -42,7 +42,7 @@ export function displayHealth(
   now: number = Date.now(),
 ): DisplayHealth {
   if (!display.tokenHash) return 'never-paired';
-  // Paired but no poll yet — usually a provisioning URL minted and never
+  // Paired but no poll yet: usually a provisioning URL minted and never
   // opened on the device. Distinct from never-paired: something is mid-setup.
   if (!display.lastSeenAt) return 'never-seen';
   const age = now - Date.parse(display.lastSeenAt);
@@ -69,7 +69,7 @@ const offline = displays.filter((d) => displayHealth(d) === 'offline');
 )}
 ```
 
-`currentAdId` is worth surfacing next to the pill — "online, showing *Summer
+`currentAdId` is worth surfacing next to the pill: "online, showing *Summer
 Promo*" answers the real question in one glance, and catches the case where a
 screen is polling happily but stuck on one slide.
 
@@ -81,7 +81,7 @@ between finding out today and finding out next month.
 
 Two variants, both cheap because the player is already a component:
 
-**Playlist preview** — before publishing, in a dialog:
+**Playlist preview** (before publishing, in a dialog):
 
 ```tsx
 <div style={{
@@ -94,10 +94,10 @@ Two variants, both cheap because the player is already a component:
 
 `PlaylistPreview` is the player with the network layer removed: pass `ads` in
 directly and reuse `playerReducer` verbatim. That reuse is a direct payoff of
-extracting the machine ([player-runtime.md](player-runtime.md)) — the preview is
+keeping the machine pure ([player-runtime.md](player-runtime.md)): the preview is
 not an approximation, it is the same loop.
 
-**What is on screen now** — from telemetry, no device round trip: look up
+**What is on screen now**, from telemetry with no device round trip: look up
 `display.currentAdId` in the media library and render that ad's thumbnail beside
 the screen's name.
 
@@ -109,10 +109,10 @@ check whether a change worked.
 Everything rides down on the poll response. There are two channels, and the
 split is load-bearing:
 
-- **`mode`** — durable state: `play`, `blank`, or `takeover`. Held on the
+- **`mode`** is durable state: `play`, `blank`, or `takeover`. Held on the
   display row and delivered on **every** poll, so it survives the device's
   daily reload and any power cycle. No acknowledgement needed.
-- **`command`** — one-shot: `reload`. Acknowledgement-cleared, so a command
+- **`command`** is one-shot: `reload`. Acknowledgement-cleared, so a command
   issued while a screen is unplugged still runs when it comes back.
 
 Put blank or takeover in the one-shot channel and the player's nightly reload
@@ -126,7 +126,7 @@ this work through NAT, captive portals, and venue firewalls.
 | `reload` | command | Screen is wedged, or you shipped a new player build |
 | `blank` | mode | Maintenance, a private event, a screen that must go dark now |
 | `takeover` | mode | Full-screen message pre-empting the playlist; optional `until` |
-| `resume` | mode | Back to the playlist — ends a blank or takeover |
+| `resume` | mode | Back to the playlist, ending a blank or takeover |
 
 One endpoint accepts all four:
 
@@ -173,7 +173,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
 `until` is enforced **server-side**, at playlist resolution
 ([api-routes.md](api-routes.md)): an expired takeover resolves to `play` and
-the screen reverts within one poll. The device never does its own date math —
+the screen reverts within one poll. The device never does its own date math:
 its clock is whatever the installer left it on.
 
 Reload acknowledgement is compare-and-clear, so an ack in flight cannot wipe a
@@ -191,12 +191,12 @@ export async function clearCommand(displayId: string, ackIssuedAt: string): Prom
 ```
 
 The device persists the last acknowledged `issuedAt` locally **before**
-reloading — otherwise the reload destroys the in-memory ack, the server
+reloading. Otherwise the reload destroys the in-memory ack, the server
 re-delivers the command on the next poll, and the screen reloads forever. See
 [player-runtime.md](player-runtime.md).
 
 `takeover` is the one worth building even if the others wait. Every venue
-eventually needs to put "Range closed — safety briefing in progress" or
+eventually needs to put "Range closed: safety briefing in progress" or
 "Evacuate via the north exit" on every screen at once, and the alternative is
 someone walking around with a USB stick. Add a **location-wide** variant that
 writes the mode to every active screen in one batch.
@@ -223,7 +223,7 @@ export interface SignageLog {
 ```
 
 Write it in the route handler, where the authenticated staff identity is
-available — not in the service layer, which does not know who is calling.
+available, not in the service layer, which does not know who is calling.
 
 Index on `(locationId, createdAt desc)` and surface the last 50 entries on the
 screens page. Playlist edits are the highest-value rows: they are frequent,

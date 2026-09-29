@@ -1,18 +1,18 @@
 # Admin UI
 
 Three surfaces: **media library** (ads), **screens** (displays + playlist), and
-**operations** (health, preview, remote control — see
+**operations** (health, preview, remote control; see
 [operations.md](operations.md)).
 
 Layering, thin at each level:
 
 ```
 page.tsx        auth guard + shell only, no data fetching
-  └── List      owns fetch/sort/filter state, opens dialogs
-        └── Form   controlled inputs, hands data up via onSave
+  `-- List      owns fetch/sort/filter state, opens dialogs
+        `-- Form   controlled inputs, hands data up via onSave
 ```
 
-Tailwind is fine here — the TV-browser constraint applies only to the device.
+Tailwind is fine here: the TV-browser constraint applies only to the device.
 
 ## Upload, then save
 
@@ -33,7 +33,7 @@ async function handleSave(form: AdFormData, metadata: AdFileMetadata, file?: Fil
     const payload = { ...form, url, storagePath, ...metadata };
     if (editing) {
       // When the file was swapped, the server sees the new storagePath differs
-      // from the row's old one and deletes the orphaned object itself — the
+      // from the row's old one and deletes the orphaned object itself. The
       // client never names a path to delete. See api-routes.md.
       await apiFetch(`/api/admin/ads/${editing.id}`, {
         method: 'PUT',
@@ -54,9 +54,9 @@ async function handleSave(form: AdFormData, metadata: AdFileMetadata, file?: Fil
 Ordering rationale: a stored file with no row is a harmless orphan you can sweep
 up. A row pointing at a file that failed to upload is a broken screen.
 
-## Client-side metadata extraction
+## Reading media metadata client-side
 
-Read dimensions and video length in the browser — the server never touches the
+Read dimensions and video length in the browser. The server never touches the
 bytes, and these values drive the duration default and the fit warnings.
 
 ```ts
@@ -86,8 +86,8 @@ export function extractMetadata(file: File): Promise<AdFileMetadata> {
     if (file.type.startsWith('video/')) {
       const video = document.createElement('video');
       video.preload = 'metadata';
-      // Guards matter: audio-only files report 0×0, and some webm/stream
-      // containers report duration: Infinity — which JSON-serialises to null
+      // Guards matter: audio-only files report 0x0, and some webm/stream
+      // containers report duration: Infinity, which JSON-serialises to null
       // and breaks loop-time math. Store undefined instead.
       video.onloadedmetadata = () => done({
         width: video.videoWidth || undefined,
@@ -109,7 +109,7 @@ export function extractMetadata(file: File): Promise<AdFileMetadata> {
 }
 ```
 
-Type is **detected, never chosen** — a type picker is a field users get wrong.
+Type is **detected, never chosen**: a type picker is a field users get wrong.
 
 ## Ad form
 
@@ -133,7 +133,7 @@ Rules the form enforces:
 - **Validate size and MIME before uploading**, with the actual numbers in the
   message. Letting the storage rule reject it means a long wait followed by an
   opaque failure.
-- **Warn on orientation mismatch** — see below.
+- **Warn on orientation mismatch** (see below).
 
 ## Fit warning
 
@@ -147,21 +147,21 @@ function fitWarning(ad: { width?: number; height?: number },
   if (!ad.width || !ad.height) return null;
   const adOrientation = ad.width >= ad.height ? 'landscape' : 'portrait';
   if (adOrientation === display.orientation) return null;
-  return `This ad is ${adOrientation} but the screen is ${display.orientation} — `
+  return `This ad is ${adOrientation} but the screen is ${display.orientation}; `
        + 'it will be letterboxed.';
 }
 ```
 
 ## Media library list
 
-Columns: thumbnail · name · type · dimensions · size · duration · status · actions.
+Columns: thumbnail, name, type, dimensions, size, duration, status, actions.
 
-- **Thumbnail inline** — `<img>` for images, `<video muted preload="metadata">`
+- **Thumbnail inline:** `<img>` for images, `<video muted preload="metadata">`
   for video. Recognising content by sight is most of what this screen is for.
 - **Duration column** shows `Auto (0:42)` for video, `10s` otherwise.
-- **Status pill** distinguishes three states, not two: Active · Paused ·
+- **Status pill** distinguishes three states, not two: Active, Paused,
   Deleted. Collapsing "paused" and "deleted" into one boolean is what lets a
-  deleted ad get silently resurrected — see [data-model.md](data-model.md).
+  deleted ad get silently resurrected (see [data-model.md](data-model.md)).
 - **Search and type filter.** A library grows past what a flat list serves.
 - **Paginate**, or the list query's cap silently truncates the library.
 
@@ -224,7 +224,7 @@ export default function PlaylistEditor({ ads, value, onChange, orientation }: Pr
     onChange(next);
   };
 
-  // Total loop time — the number an operator actually needs and never has.
+  // Total loop time: the number an operator actually needs and never has.
   const loopSeconds = value.reduce((sum, id) => {
     const ad = byId.get(id);
     if (!ad) return sum;
@@ -261,11 +261,11 @@ export default function PlaylistEditor({ ads, value, onChange, orientation }: Pr
             <div key={`${id}-${i}`} className="flex items-center gap-1 border-b px-2 py-1.5 text-sm">
               <span className="w-6 opacity-50">{i + 1}</span>
               <span className="flex-1">{ad?.name ?? <em className="opacity-50">missing</em>}</span>
-              {warning && <span title={warning}>⚠️</span>}
-              <button type="button" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
+              {warning && <span title={warning}>{'\u26A0\uFE0F'}</span>}
+              <button type="button" onClick={() => move(i, -1)} disabled={i === 0}>&uarr;</button>
               <button type="button" onClick={() => move(i, 1)}
-                disabled={i === value.length - 1}>↓</button>
-              <button type="button" onClick={() => remove(i)}>×</button>
+                disabled={i === value.length - 1}>&darr;</button>
+              <button type="button" onClick={() => remove(i)}>&times;</button>
             </div>
           );
         })}
@@ -278,7 +278,7 @@ export default function PlaylistEditor({ ads, value, onChange, orientation }: Pr
 Notes worth keeping:
 
 - **Filtering `available` by membership prevents duplicates.** That is a product
-  decision, not a technical one — the data model allows the same ad twice, which
+  decision, not a technical one: the data model allows the same ad twice, which
   is a reasonable way to weight a short spot in a long loop. If you want that,
   drop the filter; the rest already handles it.
 - **Loop duration and per-item share** are the two numbers an operator needs to
@@ -288,9 +288,9 @@ Notes worth keeping:
 
 ## Screen list and provisioning
 
-Columns: name · resolution · orientation · items · **health** · status · actions.
+Columns: name, resolution, orientation, items, **health**, status, actions.
 The health column is what turns this from a config table into an operations
-dashboard — see [operations.md](operations.md).
+dashboard (see [operations.md](operations.md)).
 
 Resolution presets save typing and produce consistent values:
 
@@ -302,7 +302,7 @@ const RESOLUTION_PRESETS = [
 ] as const;
 ```
 
-Provisioning URL — the fast path for setting up a screen:
+Provisioning URL, the fast path for setting up a screen:
 
 ```tsx
 function ProvisioningUrl({ token, locale }: { token: string; locale: string }) {
@@ -361,7 +361,7 @@ toast instead of a bare status code.
 ## Localisation
 
 Route every string through the app's dictionary from the start. Admin UIs get
-written in the team's language "for now" and that decision survives for years —
+written in the team's language "for now" and that decision survives for years:
 by the time a second market appears, the strings are spread across a dozen
 components. The device UI has only a handful of strings (PIN prompt, errors) and
 should be localised too.

@@ -7,7 +7,7 @@ Two audiences, two auth models:
 | `/api/display/*` | Unattended TV | Per-display bearer token, minted at pairing |
 | `/api/admin/*` | Staff browser | Existing staff session, min role `admin` |
 
-Next.js 16 App Router: **`params` is a Promise** — always `const { id } = await params`.
+Next.js 16 App Router: **`params` is a Promise**, so always `const { id } = await params`.
 
 ## Environment
 
@@ -38,15 +38,15 @@ export function hashDisplayToken(token: string): string {
 }
 ```
 
-Lookup is by `tokenHash`, which is indexed and unique — so verification is one
+Lookup is by `tokenHash`, which is indexed and unique, so verification is one
 indexed read, and revoking a screen is `tokenHash = null` on one row.
 
-## Pairing — `POST /api/display/pair`
+## Pairing: `POST /api/display/pair`
 
 Two steps through one endpoint, mirroring the two screens of the pairing UI.
 
-- `{ pin }` → the location's screens. **No token is issued.**
-- `{ pin, displayId }` → mints and returns the token for that one screen.
+- `{ pin }` returns the location's screens. **No token is issued.**
+- `{ pin, displayId }` mints and returns the token for that one screen.
 
 ```ts
 // app/api/display/pair/route.ts
@@ -111,17 +111,17 @@ export async function POST(req: NextRequest) {
 }
 ```
 
-The device never learns or sends a `locationId` for playback — the server
+The device never learns or sends a `locationId` for playback. The server
 derives it from the screen the token resolves to.
 
-PIN storage and comparison belong to the host's `getLocationByPin` — a seam,
+PIN storage and comparison belong to the host's `getLocationByPin`, a seam
 per [adaptation.md](adaptation.md). Store PINs hashed, or at minimum compare
 them in constant time.
 
 ### Rate limiting
 
 ```ts
-// lib/rate-limit.ts — single-instance only; see the caveat below.
+// lib/rate-limit.ts: single-instance only; see the caveat below.
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
 export async function rateLimit(
@@ -145,7 +145,7 @@ share state between concurrent instances, so it raises the cost of brute force
 without ending it. For real protection use a shared store (Upstash Redis,
 `@vercel/kv`) or a platform firewall rate-limit rule on the pairing path.
 
-## Playback — `POST /api/display/playlist`
+## Playback: `POST /api/display/playlist`
 
 The single endpoint that sustains the runtime: telemetry up, content and
 commands down.
@@ -165,7 +165,7 @@ import type { AdItem, DisplayMode, PlaylistResponse } from '@/types/signage';
 
 const Body = z.object({
   token: z.string().min(1),
-  /** Telemetry — what the screen is showing right now. */
+  /** Telemetry: what the screen is showing right now. */
   currentAdId: z.string().nullable().optional(),
   agentVersion: z.string().max(32).optional(),
   /** Set when the device has carried out the command it was given. */
@@ -195,8 +195,8 @@ export async function POST(req: NextRequest) {
   ]);
 
   // A takeover past its `until` resolves to `play` here, server-side. The
-  // device never does its own date math — its clock is whatever the installer
-  // left it on — so it only ever renders the mode it is handed.
+  // device never does its own date math (its clock is whatever the installer
+  // left it on), so it only ever renders the mode it is handed.
   const mode: DisplayMode =
     display.mode.kind === 'takeover' && display.mode.until &&
     display.mode.until <= new Date().toISOString()
@@ -220,7 +220,7 @@ export async function POST(req: NextRequest) {
   };
 
   // ETag over the *content*, so an unchanged playlist costs the device nothing
-  // to re-poll. Telemetry above still ran — a 304 is not a skipped heartbeat.
+  // to re-poll. Telemetry above still ran; a 304 is not a skipped heartbeat.
   const etag = `"${createHash('sha1').update(JSON.stringify(payload)).digest('base64url')}"`;
   if (req.headers.get('if-none-match') === etag) {
     return new NextResponse(null, { status: 304, headers: { ETag: etag } });
@@ -232,12 +232,12 @@ export async function POST(req: NextRequest) {
 }
 ```
 
-`no-cache` means "revalidate every time", not "do not store" — exactly the
+`no-cache` means "revalidate every time", not "do not store": exactly the
 behaviour an ETag needs.
 
 **Cost note.** Every poll writes `lastSeenAt`. Twenty screens on a 60-second
 poll is ~29k writes/day. If that matters, gate the write inside `recordHeartbeat`
-to at most once per N minutes — at the cost of coarser offline detection.
+to at most once per N minutes, at the cost of coarser offline detection.
 
 ## Admin routes
 
@@ -300,7 +300,7 @@ function toErrorResponse(err: unknown, tag: string) {
 }
 ```
 
-Never return the caught error's message to the client — log it and answer with a
+Never return the caught error's message to the client. Log it and answer with a
 constant.
 
 ### Scope enforcement on `[id]` routes
@@ -327,7 +327,7 @@ export async function PUT(
     await updateAd(id, parsed.data);
 
     // The edit swapped the file: the row now points at a new object, so the
-    // old one is orphaned — delete it here, where the trusted previous path is
+    // old one is orphaned. Delete it here, where the trusted previous path is
     // known. Never delete a client-named path; that would let any admin body
     // aim the delete at an arbitrary storage object.
     if (parsed.data.storagePath && parsed.data.storagePath !== existing.storagePath) {
@@ -344,7 +344,7 @@ export async function PUT(
 ```ts
 // lib/staff-auth.ts
 /**
- * 404, not 403 — a 403 confirms the record exists, letting a caller enumerate
+ * 404, not 403: a 403 confirms the record exists, letting a caller enumerate
  * other tenants' ids. Handles both scoping shapes.
  */
 export function requireLocationScope(
@@ -392,13 +392,13 @@ export async function DELETE(
 | `/api/admin/displays` | GET, POST | Screen registry |
 | `/api/admin/displays/[id]` | PUT, DELETE | Edit incl. `adIds` reorder, delete |
 | `/api/admin/displays/[id]/command` | POST | Issue reload / blank / takeover / resume |
-| `/api/admin/displays/[id]/unpair` | POST | `tokenHash = null` — instant revoke |
+| `/api/admin/displays/[id]/unpair` | POST | `tokenHash = null`, instant revoke |
 
 The last three are covered in [operations.md](operations.md).
 
 ## Testing
 
-Route handlers are plain functions — import and call them with a stub request,
+Route handlers are plain functions: import and call them with a stub request,
 mocking the service module. No server, no emulator:
 
 ```ts
@@ -417,5 +417,5 @@ it('rejects a revoked token', async () => {
 });
 ```
 
-To exercise a `catch` → 500 branch, throw at the `req.json()` boundary rather
+To exercise a `catch` to 500 branch, throw at the `req.json()` boundary rather
 than from a service mock.

@@ -6,7 +6,7 @@ dangling-playlist-reference problem that needs manual cleanup in Firestore
 cannot occur.
 
 > Load the `supabase-postgres-best-practices` skill before writing migrations if
-> it is available — it governs schema, RLS, and index conventions.
+> it is available: it governs schema, RLS, and index conventions.
 
 ## Schema
 
@@ -159,7 +159,7 @@ $$;
 ```
 
 `with ordinality` preserves the array's order, including duplicates.
-`security invoker` is deliberate — a `security definer` function here would let
+`security invoker` is deliberate: a `security definer` function here would let
 any caller rewrite any screen's playlist.
 
 ## RLS
@@ -300,7 +300,7 @@ create policy "staff upload ad media" on storage.objects
 ```
 
 Unlike Firebase Storage rules, `file_size_limit` and `allowed_mime_types` are
-enforced by the bucket itself. Still validate client-side — a rejection after a
+enforced by the bucket itself. Still validate client-side: a rejection after a
 10 MB upload is a bad experience either way.
 
 ```ts
@@ -358,11 +358,11 @@ client:
 ```ts
 const svc = getSupabaseServiceRole();
 
-// getDisplayByTokenHash — token_hash is unique, so one indexed read.
+// getDisplayByTokenHash: token_hash is unique, so one indexed read.
 const { data: display } = await svc.from('displays')
   .select('*').eq('token_hash', tokenHash).maybeSingle();
 
-// recordHeartbeat — the touch trigger above skips these columns, so
+// recordHeartbeat: the touch trigger above skips these columns, so
 // updated_at stays an edit timestamp.
 await svc.from('displays').update({
   last_seen_at: new Date().toISOString(),
@@ -370,7 +370,7 @@ await svc.from('displays').update({
   ...(agentVersion ? { agent_version: agentVersion } : {}),
 }).eq('id', displayId);
 
-// clearCommand — the compare-and-clear that needs a transaction in Firestore
+// clearCommand: the compare-and-clear that needs a transaction in Firestore
 // is one guarded UPDATE here: only the command that was acknowledged clears,
 // so an ack in flight cannot wipe a newer command issued a second ago.
 await svc.from('displays').update({ command: null })
@@ -378,7 +378,7 @@ await svc.from('displays').update({ command: null })
 ```
 
 Playlist resolution replaces `getAdsByIds(display.adIds)` with the ordered
-join query above — the junction table is the source of order, so there is no
+join query above. The junction table is the source of order, so there is no
 `adIds` array on this backend.
 
 ## Optional: Realtime instead of polling

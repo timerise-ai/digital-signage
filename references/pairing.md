@@ -4,15 +4,15 @@ How an unattended screen acquires a credential and keeps it. The player itself
 is in [player-runtime.md](player-runtime.md); the endpoint it talks to is in
 [api-routes.md](api-routes.md).
 
-**Inline styles only** on every device-side component — see
-[player-runtime.md](player-runtime.md) for why.
+**Inline styles only** on every device-side component (see
+[player-runtime.md](player-runtime.md) for why).
 
 ## Bootstrap and pairing
 
 Two ways in, both ending at the same stored credential:
 
-1. **Provisioning URL** — an admin opens `…/display?token=…` on the screen once.
-2. **PIN pairing** — open `…/display` bare, type the venue PIN, pick the screen.
+1. **Provisioning URL**: an admin opens `.../display?token=...` on the screen once.
+2. **PIN pairing**: open `.../display` bare, type the venue PIN, pick the screen.
 
 ```tsx
 // app/[locale]/(display)/display/page.tsx
@@ -73,7 +73,7 @@ export default function DisplayPage() {
 ## The hub
 
 Two screens driven by one piece of state. Large hit targets, `type="tel"` for the
-on-screen numeric keypad, and `Enter` handlers throughout — many screens are
+on-screen numeric keypad, and `Enter` handlers throughout, because many screens are
 driven by an IR remote, not a mouse.
 
 ```tsx
@@ -172,7 +172,7 @@ export default function DisplayHub({ onPaired }: { onPaired: (token: string) => 
               <div style={{ fontSize: 17, opacity: 0.6, marginTop: 8 }}>
                 {d.adCount} item{d.adCount === 1 ? '' : 's'}
                 {/* Warn before stealing a screen from another device. */}
-                {d.paired && ' · already paired'}
+                {d.paired && ' \u00B7 already paired'}
               </div>
             </div>
           ))}

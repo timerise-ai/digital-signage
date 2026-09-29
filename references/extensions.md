@@ -13,7 +13,7 @@ export interface AdSchedule {
   /** Inclusive campaign window. null = unbounded on that side. */
   startsAt: string | null;
   endsAt: string | null;
-  /** 0 = Sunday … 6 = Saturday. Empty = every day. */
+  /** 0 = Sunday to 6 = Saturday. Empty = every day. */
   daysOfWeek: number[];
   /** Local wall-clock "HH:mm". null = all day. */
   startTime: string | null;
@@ -49,7 +49,7 @@ export function isScheduledNow(
 
   const hhmm = `${get('hour')}:${get('minute')}`;
   if (schedule.startTime && schedule.endTime) {
-    // A window that wraps midnight (22:00–02:00) is a union, not a range.
+    // A window that wraps midnight (22:00 to 02:00) is a union, not a range.
     return schedule.startTime <= schedule.endTime
       ? hhmm >= schedule.startTime && hhmm <= schedule.endTime
       : hhmm >= schedule.startTime || hhmm <= schedule.endTime;
@@ -64,7 +64,7 @@ Consequences to plan for:
   cacheable across the whole poll interval. Round "now" down to the poll interval
   when computing it, or accept the extra reads.
 - **A playlist can resolve to empty at 3 a.m.** and the screen falls back to the
-  venue logo. Usually correct — but say so in the UI, or it reads as a fault.
+  venue logo. Usually correct, but say so in the UI, or it reads as a fault.
 - **Show the effective playlist for a chosen time** in the editor. Scheduling
   without a "what will be showing at 14:00 on Friday?" view is very hard to
   reason about.
@@ -72,7 +72,7 @@ Consequences to plan for:
 ## Reusable playlists
 
 The array model puts one playlist on one screen. Editing a campaign across ten
-screens is then ten edits — and the tenth gets forgotten.
+screens is then ten edits, and the tenth gets forgotten.
 
 Move when: the same content runs on more than two or three screens, or screens
 fall into obvious groups (all lobby screens, all bar screens).
@@ -106,7 +106,7 @@ Migration, in order:
 4. Deduplicate identical playlists in the UI, offering to merge them.
 5. Drop the old column once nothing reads it.
 
-Keep the per-screen override — "this one screen shows something different" is a
+Keep the per-screen override: "this one screen shows something different" is a
 permanent requirement, not a transitional state.
 
 The wire payload does not change: the device still receives an ordered
@@ -118,7 +118,7 @@ Required the moment slots are sold to third parties: advertisers want evidence
 their spot ran.
 
 The device already reports `currentAdId` on every poll. That gives sampled
-evidence for free — at a 60-second poll, a 10-second slide is usually missed. If
+evidence for free. At a 60-second poll, a 10-second slide is usually missed. If
 sampling is enough, aggregate the telemetry you already store and stop here.
 
 For contractual reporting, batch actual playback events:
@@ -138,13 +138,13 @@ write one row per impression: forty screens on a twenty-item loop generate
 ~10 million rows a year, and nobody queries them individually.
 
 Report per ad per day: plays, completions, total seconds on screen, screens
-reached. Buffer in memory only — persisting to `localStorage` risks a
+reached. Buffer in memory only: persisting to `localStorage` risks a
 double-count after a crash, and inflated play counts are worse than missing ones
 when someone is being invoiced.
 
 ## Offline media precaching
 
-The baseline offline story — playlist in memory, media from HTTP cache — covers
+The baseline offline story (playlist in memory, media from HTTP cache) covers
 brief outages. Screens that go offline for hours, or run on genuinely bad
 connections, need the media itself held locally.
 
@@ -170,7 +170,7 @@ async function precache(ads: AdItem[]) {
 
 Pair with a service worker serving cache-first for the media origin. Watch two
 things: **storage quota** (a few hundred MB on TV browsers; evict before adding)
-and **eviction under pressure** — treat the cache as a hint, never as a
+and **eviction under pressure**: treat the cache as a hint, never as a
 guarantee, and keep the network path working.
 
 ## Multi-zone layouts
@@ -181,4 +181,4 @@ model, per-zone playlists, synchronisation between zones, and a visual editor.
 
 That is a substantially larger product. Before building it, check whether two
 physical screens, or pre-composed media produced in a design tool, solves the
-actual need — they usually do, and they cost nothing to run.
+actual need. They usually do, and they cost nothing to run.

@@ -64,7 +64,7 @@ unchanged from 0.1.3.
 ### Added
 - Install section covers the one-command `npx skills add timerise-ai/digital-signage`
   route through [skills.sh](https://www.skills.sh), and how the skill is used from
-  Codex CLI, Gemini CLI and other skills-compatible agents — `~/.agents/skills`,
+  Codex CLI, Gemini CLI and other skills-compatible agents: `~/.agents/skills`,
   symlinking rather than cloning twice, and the differing invocation syntax.
 
 ### Changed

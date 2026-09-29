@@ -1,16 +1,16 @@
 # Player runtime
 
 What runs on the TV once it has a credential. Route group
-`app/[locale]/(display)/display/`. Acquiring that credential — the bootstrap
-page and the pairing hub — is in [pairing.md](pairing.md).
+`app/[locale]/(display)/display/`. Acquiring that credential (the bootstrap
+page and the pairing hub) is in [pairing.md](pairing.md).
 
 **Style rule: inline styles only, no Tailwind, no CSS modules, on every
-device-side component.** Signage runs on Tizen, webOS, Android TV and £30 sticks
+device-side component.** Signage runs on Tizen, webOS, Android TV and cheap TV sticks
 with browsers years behind. Inline styles are the one thing that always works,
 and it removes any chance a global stylesheet or purge step breaks a screen
 nobody is looking at. The admin UI has no such constraint.
 
-## Layout — kiosk chrome
+## Layout: kiosk chrome
 
 ```tsx
 // app/[locale]/(display)/display/layout.tsx
@@ -27,13 +27,13 @@ export default function DisplayLayout({ children }: { children: React.ReactNode 
 ```
 
 Hide the cursor globally for this route group (`* { cursor: none }`). The
-browser is expected to be launched in kiosk mode by the device — the page cannot
+browser is expected to be launched in kiosk mode by the device; the page cannot
 put itself fullscreen without a user gesture.
 
 ## The state machine
 
-Extracted, pure, and therefore testable without a DOM. This is the file to get
-right — the two most damaging bugs in a signage player both live here.
+A pure module, and therefore testable without a DOM. This is the file to get
+right: the two most damaging bugs in a signage player both live here.
 
 ```ts
 // components/signage/player-machine.ts
@@ -63,7 +63,7 @@ export function playerReducer(state: PlayerState, event: PlayerEvent): PlayerSta
       const { ads } = event;
       if (ads.length === 0) return { ...state, ads, index: 0, ready: false };
 
-      // Keep the current slide on screen if it survived the update — a refresh
+      // Keep the current slide on screen if it survived the update: a refresh
       // must never restart the loop or cut a slide short.
       const currentId = state.ads[state.index]?.id;
       const carriedOver = currentId ? ads.findIndex((a) => a.id === currentId) : -1;
@@ -145,13 +145,13 @@ const CROSSFADE_MS = 600;
 const MAX_VIDEO_MS = 5 * 60_000;
 /** A video whose playback clock stops advancing for this long is skipped. */
 const VIDEO_STALL_MS = 15_000;
-/** Full reload once a day — reclaims leaked memory on long-lived TV browsers. */
+/** Full reload once a day: reclaims leaked memory on long-lived TV browsers. */
 const RELOAD_AFTER_MS = 24 * 60 * 60_000;
 /** Spread the daily reloads so a venue's screens don't all blink at once. */
 const RELOAD_JITTER_MS = 60 * 60_000;
 /** Set at build time so telemetry can spot a stale device. */
 const AGENT_VERSION = process.env.NEXT_PUBLIC_SIGNAGE_AGENT_VERSION ?? 'dev';
-/** Persisted command ack — must survive the reload the command causes. */
+/** Persisted command ack: must survive the reload the command causes. */
 const ACK_KEY = 'signage_last_command_ack';
 
 interface Props { token: string; onUnauthorized: () => void }
@@ -222,7 +222,7 @@ export default function DisplayPlayer({ token, onUnauthorized }: Props) {
         dispatch({ type: 'playlist', ads: data.ads });
         if (data.command) applyCommand(data.command);
       } catch {
-        // Offline or timed out. Keep looping the playlist already in memory —
+        // Offline or timed out. Keep looping the playlist already in memory;
         // media is served from the HTTP cache. Never blank on a failed poll.
       } finally {
         clearTimeout(timeoutId);
@@ -232,7 +232,7 @@ export default function DisplayPlayer({ token, onUnauthorized }: Props) {
 
     function applyCommand(command: DisplayCommand) {
       // `reload` destroys the in-memory ack before the next poll can deliver
-      // it, so the server would re-send the command forever — an infinite
+      // it, so the server would re-send the command forever, an infinite
       // reload loop. Persist the ack locally and skip anything already done.
       let lastAck: string | null = null;
       try { lastAck = localStorage.getItem(ACK_KEY); } catch { /* ignore */ }
@@ -375,10 +375,10 @@ export default function DisplayPlayer({ token, onUnauthorized }: Props) {
 
   // Two slots alternating by parity: the outgoing slide stays mounted in the
   // other slot and fades out, giving a real crossfade instead of a fade up
-  // from black. Each slot keeps the epoch it was filled with — keying both
+  // from black. Each slot keeps the epoch it was filled with. Keying both
   // slots on the *current* epoch would remount the outgoing slide at opacity
   // 0 and cut the crossfade to a fade-from-black. Writing to the ref during
-  // render is intentional and safe — it is derived state, read in the same
+  // render is intentional and safe: it is derived state, read in the same
   // render.
   const active = state.index % 2;
   slotsRef.current[active] = current ? { ad: current, epoch: state.epoch } : null;
@@ -392,7 +392,7 @@ export default function DisplayPlayer({ token, onUnauthorized }: Props) {
         const { ad } = entry;
         const isActive = slot === active;
         // Never keep an offscreen <video> mounted: it goes on decoding. The
-        // cost is that transitions out of video hard-cut rather than fade —
+        // cost is that transitions out of video hard-cut rather than fade,
         // deliberate.
         if (!isActive && ad.type === 'video') return null;
 
@@ -429,7 +429,7 @@ export default function DisplayPlayer({ token, onUnauthorized }: Props) {
         );
       })}
 
-      {/* Preload the next image as a real DOM node — more reliable on TV
+      {/* Preload the next image as a real DOM node: more reliable on TV
           browsers than `new Image()`, which some of them never schedule. */}
       {next && next.type !== 'video' && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -488,11 +488,11 @@ trace on a wall in a customer-facing space.
 | Video errors | Skip immediately |
 | Video stalls (no progress for 15 s) | Skip |
 | Video never ends | Skip at the 5-minute cap |
-| Slide never becomes ready | Watchdog advances at 3× duration, min 30 s |
+| Slide never becomes ready | Watchdog advances at 3x duration, min 30 s |
 | `blank` / `takeover` mode set | Applied on every poll; survives reload and power cycle; ends on `resume` |
 | `takeover` past its `until` | Server resolves it to `play`; screen reverts within one poll |
-| `reload` command | Runs once — the ack is persisted in `localStorage` first, so it cannot loop |
-| Screen deleted or unpaired in admin | Next poll 401s → back to pairing |
+| `reload` command | Runs once; the ack is persisted in `localStorage` first, so it cannot loop |
+| Screen deleted or unpaired in admin | Next poll 401s, then back to pairing |
 
 ## Offline
 
@@ -502,4 +502,4 @@ what makes this work). No IndexedDB, no service worker, no retry backoff.
 
 That is sufficient for a screen with occasional connectivity. For screens that
 are offline for hours at a time, add a service worker that precaches the
-playlist's media — see [extensions.md](extensions.md).
+playlist's media (see [extensions.md](extensions.md)).
