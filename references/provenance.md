@@ -156,6 +156,14 @@ Remote control was itself hardened after a second audit of the templates:
 - **`until` on a takeover is enforced server-side** at playlist resolution;
   the device's clock is never trusted with date math.
 
+Building into an app with no staff auth, venues or PIN is also designed in the
+skill. The earlier implementation sat inside a host that had all three, so the
+skill called them seams the host must already have. The agent evals start from
+an empty app, and with nothing said for that case one run took the venue from a
+request header and answered a hard-coded PIN when the database was unreachable.
+[adaptation.md](adaptation.md) now says what to build when the host has none of
+them, and what never stands in for them.
+
 The earlier implementation also had no automated tests. The templates are
 structured so the two pieces most worth testing, playlist resolution and the
 player state machine, are pure functions callable without a database or a DOM.

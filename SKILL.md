@@ -67,23 +67,19 @@ down. Everything operational rides that channel.
 
 ## Critical facts
 
-1. **The playlist is an ordered array on the display, not a separate entity.**
-   `display.adIds: string[]` *is* the playlist: order is free, no joins, one
-   read. Introduce a standalone playlist entity only when the same content must
-   run on several screens; see [data-model.md](references/data-model.md) for the
-   trade-off and [extensions.md](references/extensions.md) for the migration.
-2. **Poll; do not stream.** A 30 to 60 s poll is cheaper, survives sleeping
-   network stacks, and reconnects for free. Realtime is an optional upgrade, not
-   the baseline. Cache the response with an ETag or you pay for a full read per
-   screen per poll.
-3. **Media uploads go from the browser straight to storage**, never through an
-   API route. Route handlers have body-size limits and burn compute proxying
-   bytes.
-4. **The device is untrusted and unattended.** It holds a long-lived credential
-   in `localStorage` on hardware anyone can walk up to. That credential must be
-   per-screen and revocable.
-5. **The player must never be able to stop.** Every media element gets a timeout,
-   an error handler, and a way to skip. A broken asset advances; it does not wedge.
+1. **The playlist is an ordered array on the display, not a separate entity.** `display.adIds: string[]`
+   *is* the playlist: order is free, no joins, one read. Introduce a standalone playlist entity only when the
+   same content must run on several screens; see [data-model.md](references/data-model.md) for the trade-off
+   and [extensions.md](references/extensions.md) for the migration.
+2. **Poll; do not stream.** A 30 to 60 s poll is cheaper, survives sleeping network stacks, and reconnects
+   for free. Realtime is an optional upgrade, not the baseline. Cache the response with an ETag or you pay
+   for a full read per screen per poll.
+3. **Media uploads go from the browser straight to storage**, never through an API route. Route handlers
+   have body-size limits and burn compute proxying bytes.
+4. **The device is untrusted and unattended.** It holds a long-lived credential in `localStorage` on hardware
+   anyone can walk up to. That credential must be per-screen and revocable.
+5. **The player must never be able to stop.** Every media element gets a timeout, an error handler, and a
+   way to skip. A broken asset advances; it does not wedge.
 
 ## Hard rules
 
@@ -100,8 +96,9 @@ down. Everything operational rides that channel.
 > pairing, store only its hash, and make revocation a single row update.
 
 > **Never trust a client-supplied tenant/location scope.** Derive it server-side
-> from the staff session or the display row the token resolves to, and enforce
-> it on every `[id]` route, returning **404, not 403**, so ids cannot be probed.
+> from the staff session or the display row the token resolves to, never from a
+> header, cookie, query parameter or default venue, and enforce it on every
+> `[id]` route, returning **404, not 403**, so ids cannot be probed.
 
 > **Never overload one boolean as both "paused" and "deleted".** Use `active` for
 > operator intent and a separate `deletedAt` for lifecycle, or a deleted item
@@ -117,25 +114,27 @@ down. Everything operational rides that channel.
 
 ## Quick start
 
-0. Fill in the seam contract for your app and confirm the domain rename:
-   [adaptation.md](references/adaptation.md).
-1. Model the entities and pick array or junction table:
-   [data-model.md](references/data-model.md).
+0. Fill in the seam contract and confirm the domain rename: [adaptation.md](references/adaptation.md). An app
+   with no staff auth, venues or PIN gets them built for real on its backend, as that file says: never a demo
+   venue, a default PIN, a placeholder secret or fallback data for an unreachable database. A missing
+   variable fails when its route runs, not at build.
+1. Model the entities and pick array or junction table: [data-model.md](references/data-model.md).
 2. Create tables or collections, indexes, security rules and the media bucket:
    [firestore-backend.md](references/firestore-backend.md) or
    [supabase-backend.md](references/supabase-backend.md).
-3. Build the device and admin endpoints, including pairing and token
-   verification: [api-routes.md](references/api-routes.md).
-4. Get a screen paired with [pairing.md](references/pairing.md), then drop in the
-   player loop from [player-runtime.md](references/player-runtime.md).
-5. Build the back-office: media library, display list, playlist editor, from
-   [admin-ui.md](references/admin-ui.md).
-6. Add health, preview and remote control before going live:
+3. Build the device and admin endpoints, including pairing and token verification:
+   [api-routes.md](references/api-routes.md).
+4. Get a screen paired with [pairing.md](references/pairing.md), then drop in the player loop from
+   [player-runtime.md](references/player-runtime.md).
+5. Build the back-office (media library, display list, playlist editor) from
+   [admin-ui.md](references/admin-ui.md), then health, preview and remote control from
    [operations.md](references/operations.md).
-7. Verify against the behaviour contract table in
-   [player-runtime.md](references/player-runtime.md) (pull the network cable,
-   delete the current ad mid-loop, issue a reload) and ship the
-   player-machine tests as regression cover.
+6. Keep the measured numbers as the templates set them: the 10 MB upload limit, the 60 s poll, the 15 s video
+   stall and the 3x-duration watchdog. Verify against the behaviour contract table in
+   [player-runtime.md](references/player-runtime.md) (pull the network cable, delete the current ad mid-loop,
+   issue a reload) and ship the player-machine and route tests unmodified as regression cover.
+7. Hand over a tracked `.env.example` listing every variable the code reads, empty, and tell the operator
+   that `SIGNAGE_TOKEN_PEPPER` must be set in every environment and that rotating it unpairs every screen.
 
 ## Reference directory
 
@@ -144,7 +143,7 @@ Load the reference matching the task; for greenfield design, read `data-model.md
 
 | Scenario | Trigger keywords | Reference |
 |---|---|---|
-| Fitting this into an existing app | adapt, rename, seam, integrate, tenant, host app | [adaptation.md](references/adaptation.md) |
+| Fitting this into an existing app | adapt, rename, seam, integrate, tenant, host app, no auth yet, .env.example | [adaptation.md](references/adaptation.md) |
 | Entities, fields, playlist shape | schema, model, Ad, Display, playlist, junction, soft delete | [data-model.md](references/data-model.md) |
 | Firestore/Firebase backend | Firestore, firebase-admin, security rules, composite index, Firebase Storage | [firestore-backend.md](references/firestore-backend.md) |
 | Supabase/Postgres backend | Supabase, Postgres, RLS, migration, storage bucket, Realtime | [supabase-backend.md](references/supabase-backend.md) |

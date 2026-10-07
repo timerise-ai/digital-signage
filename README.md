@@ -113,8 +113,9 @@ order, and `references/adaptation.md` restates them.
    and revocation is one row update; the device is untrusted hardware anyone can walk up to. The route tests
    in `references/api-routes.md` cover a revoked token.
 4. **Tenant scope is derived server-side and enforced on every `[id]` route, answering 404, not 403.** A
-   client-supplied scope is not a scope, and a 403 tells a prober the id exists. `requireLocationScope` in
-   `references/api-routes.md` is called on every `[id]` route.
+   client-supplied scope is not a scope, whether a header, a cookie or a query parameter carries it, and a 403
+   tells a prober the id exists. `requireLocationScope` in `references/api-routes.md` is called on every
+   `[id]` route.
 5. **`active` is operator intent, `deletedAt` is lifecycle.** One boolean for both lets a toggle bring a
    deleted item back; two fields give the admin three states, Active, Paused and Deleted.
    `references/data-model.md` defines both.

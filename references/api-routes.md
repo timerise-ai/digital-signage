@@ -15,7 +15,11 @@ Next.js 16 App Router: **`params` is a Promise**, so always `const { id } = awai
 SIGNAGE_TOKEN_PEPPER=<32+ random bytes, base64>   # server-only, rotates all tokens
 ```
 
-That is the only signage secret. There is deliberately **no** shared
+That is the only signage secret. `.env.example` lists it beside the backend's
+variables and `NEXT_PUBLIC_SIGNAGE_AGENT_VERSION`, every value empty. When it is
+unset, `hashDisplayToken` throws at request time; nothing substitutes a default.
+
+There is deliberately **no** shared
 `DISPLAY_ACCESS_TOKEN`-style variable: one token for every screen cannot be
 revoked for a single screen, and anyone who reads it from one TV owns them all.
 

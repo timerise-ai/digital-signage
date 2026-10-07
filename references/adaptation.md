@@ -52,8 +52,9 @@ them, and keep the comments explaining why, or the first reader "cleans them up"
    hardware cannot be revoked for one screen; a per-display hash makes
    revocation one row update.
 4. **Tenant scope is derived server-side and enforced on every `[id]` route,
-   answering 404, not 403.** A client-supplied scope is not a scope, and a 403
-   tells a prober the id exists. See [api-routes.md](api-routes.md).
+   answering 404, not 403.** A client-supplied scope is not a scope, whether it
+   arrives as a header, a cookie or a query parameter, and a 403 tells a prober
+   the id exists. See [api-routes.md](api-routes.md).
 5. **`active` is operator intent, `deletedAt` is lifecycle.** One boolean for
    both lets a toggle bring a deleted item back. See [data-model.md](data-model.md).
 6. **An image's duration timer starts at `onLoad`.** On a slow TV the slide
@@ -78,13 +79,42 @@ Everything else (styling, naming, storage provider, auth, i18n) is yours.
 - **A venue logo or equivalent fallback image**, or accept a black screen when a
   playlist is empty.
 
+### When the host has none of these
+
+A fresh app has no staff login, no venues and no PIN. Build them for real on
+the backend you were asked for, because every one is a seam the module's
+security rests on:
+
+- **Staff auth** on the backend's own auth (Supabase Auth, Firebase Auth), with
+  a `staff_locations` membership carrying the role. The RLS helper
+  `has_location_access` in [supabase-backend.md](supabase-backend.md) already
+  reads that table. `requireStaffAuthWithLocation` resolves the active location
+  from the signed-in user's memberships; a user with several may pick one, and
+  the pick is checked against those memberships on every request.
+- **Venues** as a `locations` table, and a **PIN** per venue that an admin
+  generates in the back-office, stored hashed, shown once.
+- **The first venue and admin** from a seed script the operator runs with their
+  own email, never from code.
+
+None of these is an acceptable stand-in: a location taken from a header, a
+cookie or a query parameter; a "standalone", demo or default venue; a PIN in the
+code; a placeholder value for an unset variable; fallback data served when the
+database cannot be reached. An unattended build with no services reachable needs
+none of them: the clients in the backend reference are created inside the
+functions that use them, so `next build` passes with no variables set, and a
+missing variable throws when its route runs, as `hashDisplayToken` does.
+
 ## Integration points to wire up
 
 Easy to forget, because nothing fails loudly without them:
 
 - [ ] Register the admin pages in the app's navigation
 - [ ] Add the device route to any auth middleware's public allowlist
-- [ ] Add `SIGNAGE_TOKEN_PEPPER` to every environment, including preview
+- [ ] Add `SIGNAGE_TOKEN_PEPPER` to every environment, including preview, and
+      tell the operator that rotating it unpairs every screen
+- [ ] Commit a `.env.example` listing every variable the code reads, values
+      empty; a fresh Next.js app ignores `.env*`, so add `!.env.example` to
+      `.gitignore`
 - [ ] Set `NEXT_PUBLIC_SIGNAGE_AGENT_VERSION` at build time, or telemetry
       cannot spot a stale device
 - [ ] Deploy the indexes (Firestore) or run the migration (Postgres)
