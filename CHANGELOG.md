@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9] - 2026-10-07
+
+Wording release, from scoring the prompt-1 agent eval runs against 0.1.8. Templates are unchanged.
+
+### Changed
+
+- `references/adaptation.md` says what to build when the host app has no staff auth, venues or PIN: staff
+  auth on the backend's own auth with a `staff_locations` membership, a hashed per-venue PIN set from the
+  back-office, and a seed script for the first venue and admin. A location taken from a header, cookie or
+  query parameter, a default venue, a PIN in code, a placeholder secret and fallback data for an unreachable
+  database are named as never acceptable.
+- Hard rule 4 in `SKILL.md`, the README and `adaptation.md` names the header, cookie and query parameter as
+  client-supplied scope.
+- The quick start in `SKILL.md` repeats the empty-app clause, says to keep the 10 MB upload limit, the 60 s
+  poll, the 15 s video stall and the 3x-duration watchdog as the templates set them, to ship the tests
+  unmodified, and to hand over a tracked `.env.example` and the rule that rotating `SIGNAGE_TOKEN_PEPPER`
+  unpairs every screen. `references/api-routes.md` and the integration checklist say the same.
+- `references/provenance.md` records the empty-app clause under *Added*.
+
 ## [0.1.8] - 2026-09-29
 
 Documentation release. Templates and technical content are unchanged from 0.1.7; the skill now follows the
