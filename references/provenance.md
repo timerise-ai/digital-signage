@@ -172,7 +172,7 @@ The schema is now `AdFields` without defaults, which the PUT makes partial, and
 `AdBody`, which adds the defaults for create only. The route test in
 [api-routes.md](api-routes.md) fails on the old schema.
 
-Three more template defects were found by agent evals, each edited in by an
+Seven more template defects were found by agent evals, each edited in by an
 agent and reproduced before it was adopted:
 
 - **The crossfade slot followed index parity.** A playlist edit that moved the
@@ -193,6 +193,18 @@ agent and reproduced before it was adopted:
   outside the active venue's folder, the storage rules check the folder, and
   the select policy is gone (a public bucket serves its URLs without one); a
   route test fails on the old PUT.
+- **An admin could place media in another venue's library.** The ad routes took
+  `locationIds` from the request. The server now sets it to the active venue;
+  a route test fails on the old create.
+- **The display layout failed `next build`.** It attached a context-menu
+  handler in a server component, which Next refuses on prerender. It is now a
+  client component, reproduced and verified with a minimal build.
+- **The Supabase server client answered 500 on a token refresh during render.**
+  Its cookie writer called `cookies().set` from Server Components, which Next
+  forbids. The writer now ignores that case, as Supabase's own guide does.
+- **The playlist editor did not compile.** It used `DisplayOrientation`,
+  `formatDuration` and `fitWarning` without importing or defining them.
+  `fitWarning` now lives in `lib/signage-fit.ts` and the editor imports it.
 
 The earlier implementation also had no automated tests. The templates are
 structured so the two pieces most worth testing, playlist resolution and the

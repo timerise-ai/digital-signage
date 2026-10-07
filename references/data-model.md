@@ -212,7 +212,8 @@ Contract the player and the API both honour:
 
 Note the deliberate asymmetry:
 
-- **`Ad.locationIds: string[]`**: one asset can run in many venues.
+- **`Ad.locationIds: string[]`**: one asset can run in many venues. The admin
+  routes set it to the active venue; never take the list from the request.
 - **`Display.locationId: string`**: a screen hangs in exactly one place.
 
 Scope is **always** derived server-side: from the staff session for admin

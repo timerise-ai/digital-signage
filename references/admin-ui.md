@@ -144,9 +144,12 @@ The metadata is already captured; use it. A portrait ad on a landscape screen
 letterboxes into two black bars, and today nobody finds out until they walk past
 the screen.
 
-```tsx
-function fitWarning(ad: { width?: number; height?: number },
-                    display: { orientation: DisplayOrientation }): string | null {
+```ts
+// lib/signage-fit.ts
+import type { DisplayOrientation } from '@/types/signage';
+
+export function fitWarning(ad: { width?: number; height?: number },
+                           display: { orientation: DisplayOrientation }): string | null {
   if (!ad.width || !ad.height) return null;
   const adOrientation = ad.width >= ad.height ? 'landscape' : 'portrait';
   if (adOrientation === display.orientation) return null;
@@ -199,7 +202,14 @@ divergence shows up as two screens behaving differently for no visible reason.
 // components/admin/PlaylistEditor.tsx
 'use client';
 import { useMemo } from 'react';
-import type { Ad } from '@/types/signage';
+import type { Ad, DisplayOrientation } from '@/types/signage';
+import { fitWarning } from '@/lib/signage-fit';
+
+/** Loop length for the header: "2m 05s". */
+function formatDuration(seconds: number): string {
+  const s = Math.round(seconds);
+  return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
+}
 
 interface Props {
   ads: Ad[];                                  // candidates, active only

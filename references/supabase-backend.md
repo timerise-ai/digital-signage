@@ -259,8 +259,15 @@ export async function getSupabaseServer() {
     {
       cookies: {
         getAll: () => store.getAll(),
-        setAll: (list) => list.forEach(({ name, value, options }) =>
-          store.set(name, value, options)),
+        setAll: (list) => {
+          // A Server Component cannot set cookies: Next throws, and the page
+          // answers 500 whenever a token refresh lands during render. Ignore it
+          // there; the session-refreshing proxy from Supabase's Next.js guide
+          // writes the cookies on the next request.
+          try {
+            list.forEach(({ name, value, options }) => store.set(name, value, options));
+          } catch { /* called from a Server Component */ }
+        },
       },
     },
   );

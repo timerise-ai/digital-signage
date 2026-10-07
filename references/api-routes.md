@@ -268,7 +268,8 @@ const AdFields = z.object({
   storagePath: z.string().min(1),
   duration: z.number().int().min(1).max(600),
   active: z.boolean(),
-  locationIds: z.array(z.string()),
+  // No `locationIds`: the server sets an ad's venues. A client-chosen list would
+  // let one venue's admin place media in another venue's library.
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
   videoDuration: z.number().positive().optional(),
@@ -279,7 +280,6 @@ const AdFields = z.object({
 // Create only.
 const AdBody = AdFields.extend({
   active: AdFields.shape.active.default(true),
-  locationIds: AdFields.shape.locationIds.default([]),
 });
 
 /**
@@ -310,9 +310,8 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    // The active location is always included, whatever the client sent.
-    const locationIds = [...new Set([...parsed.data.locationIds, activeLocationId])];
-    return NextResponse.json(await createAd({ ...parsed.data, locationIds }), { status: 201 });
+    const ad = await createAd({ ...parsed.data, locationIds: [activeLocationId] });
+    return NextResponse.json(ad, { status: 201 });
   } catch (err) {
     return toErrorResponse(err, 'admin/ads POST');
   }
@@ -474,10 +473,22 @@ vi.mock('@/lib/staff-auth', () => ({
   requireLocationScope: vi.fn(),
   StaffAuthError: class extends Error {},
 }));
-vi.mock('@/modules/signage/ads.server', () => ({ getAd: vi.fn(), updateAd: vi.fn() }));
+vi.mock('@/modules/signage/ads.server', () => ({
+  getAd: vi.fn(), updateAd: vi.fn(), createAd: vi.fn(async (d: object) => d), listAds: vi.fn(),
+}));
 vi.mock('@/modules/signage/storage.server', () => ({ deleteStorageObject: vi.fn() }));
 
+import { POST } from '@/app/api/admin/ads/route';
 import { PUT } from '@/app/api/admin/ads/[id]/route';
+
+it('creates an ad in the active venue only, whatever the client sends', async () => {
+  const req = { json: async () => ({
+    name: 'Promo', type: 'image', url: 'https://cdn.example/a.png',
+    storagePath: 'ads/loc-1/a.png', duration: 10, locationIds: ['loc-2'],
+  }) } as never;
+  expect((await POST(req)).status).toBe(201);
+  expect(vi.mocked(createAd).mock.calls[0][0]).toMatchObject({ locationIds: ['loc-1'] });
+});
 
 it('leaves the fields a PUT omits untouched', async () => {
   vi.mocked(getAd).mockResolvedValue(

@@ -14,6 +14,10 @@ nobody is looking at. The admin UI has no such constraint.
 
 ```tsx
 // app/[locale]/(display)/display/layout.tsx
+// A client component: the context-menu handler cannot cross the server/client
+// boundary, and a server layout with it fails `next build` on prerender.
+'use client';
+
 export default function DisplayLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
