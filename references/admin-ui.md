@@ -17,6 +17,9 @@ Tailwind is fine here: the TV-browser constraint applies only to the device.
 ## Upload, then save
 
 The one flow to get exactly right. Media goes to storage first, the row second.
+`activeLocationId` is the venue the admin shell is scoped to, the one
+`requireStaffAuthWithLocation` resolves on the server; it names the upload's
+folder, and the server rejects a path outside it.
 
 ```tsx
 async function handleSave(form: AdFormData, metadata: AdFileMetadata, file?: File) {
@@ -26,7 +29,7 @@ async function handleSave(form: AdFormData, metadata: AdFileMetadata, file?: Fil
     // Outside the try/catch below: an upload failure must reject out of here so
     // the form's own `finally` clears its saving state and shows the real
     // message ("File is 14.2 MB; the limit is 10 MB"), not a generic save error.
-    ({ url, storagePath } = await uploadAdFile(file, setUploadPct));
+    ({ url, storagePath } = await uploadAdFile(file, activeLocationId, setUploadPct));
   }
 
   try {

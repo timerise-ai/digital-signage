@@ -124,15 +124,22 @@ One query, ordered, integrity-checked. This is the Postgres payoff:
 ```sql
 select a.id, a.name, a.type, a.url, a.duration
 from public.display_ads da
+join public.displays d on d.id = da.display_id
 join public.ads a on a.id = da.ad_id
 where da.display_id = $1
   and a.active
   and a.deleted_at is null
+  and exists (
+    select 1 from public.ad_locations al
+    where al.ad_id = a.id and al.location_id = d.location_id
+  )
 order by da.position;
 ```
 
 Inactive and deleted ads drop out; ordering is explicit; a purged ad is already
-gone. No in-memory reconciliation, no chunked `in` queries, no cap that silently
+gone. The `exists` keeps a screen to its own venue's media: the write policy on
+`display_ads` checks the display's venue, not the ad's, so the read path drops
+an ad id saved from another venue. No in-memory reconciliation, no chunked `in` queries, no cap that silently
 truncates the library.
 
 ## Reordering a playlist
@@ -281,17 +288,18 @@ values ('ad-media', 'ad-media', true, 10485760,
               'video/mp4','video/webm'])
 on conflict (id) do nothing;
 
-create policy "public read ad media" on storage.objects
-  for select to public using (bucket_id = 'ad-media');
+-- No select policy: a public bucket serves its public URLs without one, and a
+-- select policy would only let anyone list every venue's files.
 
--- Staff only: a bare `to authenticated` would let any signed-in customer
--- fill a public-read bucket.
+-- Staff only, and only into a venue folder they belong to: `ads/<location_id>/...`.
+-- A bare `to authenticated` would let any signed-in customer fill a public bucket.
 create policy "staff upload ad media" on storage.objects
   for insert to authenticated
   with check (
     bucket_id = 'ad-media'
-    and exists (
-      select 1 from public.staff_locations sl
+    and (storage.foldername(name))[1] = 'ads'
+    and (storage.foldername(name))[2] in (
+      select sl.location_id::text from public.staff_locations sl
       where sl.staff_id = (select auth.uid())
     )
   );
@@ -310,7 +318,11 @@ import { createBrowserClient } from '@supabase/ssr';
 export const MAX_AD_BYTES = 10 * 1024 * 1024;
 export const ALLOWED_AD_MIME = /^(image|video)\//;
 
-export async function uploadAdFile(file: File): Promise<{ url: string; storagePath: string }> {
+export async function uploadAdFile(
+  file: File,
+  locationId: string,                 // the admin's active venue: the path's folder
+  onProgress?: (pct: number) => void,
+): Promise<{ url: string; storagePath: string }> {
   if (file.size > MAX_AD_BYTES) {
     throw new Error(`File is ${(file.size / 1e6).toFixed(1)} MB; the limit is 10 MB.`);
   }
@@ -323,7 +335,9 @@ export async function uploadAdFile(file: File): Promise<{ url: string; storagePa
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   );
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const storagePath = `${Date.now()}_${safeName}`;
+  // The server accepts only paths under the active venue's folder, so one
+  // venue's admin cannot save, and later purge, another venue's file.
+  const storagePath = `ads/${locationId}/${Date.now()}_${safeName}`;
 
   const { error } = await supabase.storage.from('ad-media').upload(storagePath, file, {
     contentType: file.type,
@@ -331,14 +345,17 @@ export async function uploadAdFile(file: File): Promise<{ url: string; storagePa
     upsert: false,
   });
   if (error) throw error;
+  onProgress?.(100);                  // supabase-js reports no progress; see below
 
   const { data } = supabase.storage.from('ad-media').getPublicUrl(storagePath);
   return { url: data.publicUrl, storagePath };
 }
 ```
 
-Supabase's JS upload does not report progress. For a visible progress bar, use a
-signed upload URL with `XMLHttpRequest` and its `upload.onprogress` event.
+Supabase's JS upload does not report progress, so `onProgress` only hears 100
+at the end; the signature matches the Firestore version so the admin UI is the
+same on both backends. For a moving bar, upload to a signed upload URL with
+`XMLHttpRequest` and its `upload.onprogress` event, keeping the same path.
 
 Purge, server-side, mirroring the Firestore version:
 
@@ -377,9 +394,10 @@ await svc.from('displays').update({ command: null })
   .eq('id', displayId).eq('command->>issuedAt', ackIssuedAt);
 ```
 
-Playlist resolution replaces `getAdsByIds(display.adIds)` with the ordered
-join query above. The junction table is the source of order, so there is no
-`adIds` array on this backend.
+Playlist resolution replaces `getAdsByIds(display.adIds, display.locationId)`
+with the ordered join query above, which keeps the venue check in its `exists`.
+The junction table is the source of order, so there is no `adIds` array on this
+backend.
 
 ## Optional: Realtime instead of polling
 

@@ -196,8 +196,10 @@ export async function POST(req: NextRequest) {
   await recordHeartbeat(display.id, { currentAdId: currentAdId ?? null, agentVersion });
   if (ackCommandAt) await clearCommand(display.id, ackCommandAt);
 
+  // The venue goes in with the ids: a screen plays only its own venue's media,
+  // even when another venue's ad id was saved into its playlist.
   const [ads, location] = await Promise.all([
-    getAdsByIds(display.adIds),
+    getAdsByIds(display.adIds, display.locationId),
     getLocation(display.locationId),
   ]);
 
@@ -280,6 +282,14 @@ const AdBody = AdFields.extend({
   locationIds: AdFields.shape.locationIds.default([]),
 });
 
+/**
+ * Uploads land in `ads/<locationId>/`. A path outside the active venue's folder
+ * would let this venue's admin save, and later purge, another venue's file.
+ */
+function ownsStoragePath(activeLocationId: string, storagePath: string): boolean {
+  return storagePath.startsWith(`ads/${activeLocationId}/`) && !storagePath.includes('..');
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { activeLocationId } = await requireStaffAuthWithLocation(req, 'admin');
@@ -294,9 +304,9 @@ export async function POST(req: NextRequest) {
   try {
     const { activeLocationId } = await requireStaffAuthWithLocation(req, 'admin');
     const parsed = AdBody.safeParse(await req.json().catch(() => null));
-    if (!parsed.success) {
+    if (!parsed.success || !ownsStoragePath(activeLocationId, parsed.data.storagePath)) {
       return NextResponse.json(
-        { error: 'Invalid request', issues: parsed.error.flatten().fieldErrors },
+        { error: 'Invalid request', issues: parsed.error?.flatten().fieldErrors },
         { status: 400 },
       );
     }
@@ -339,6 +349,9 @@ export async function PUT(
     // AdFields, not AdBody: a rename must not un-pause the ad or drop its venues.
     const parsed = AdFields.partial().safeParse(await req.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    if (parsed.data.storagePath && !ownsStoragePath(activeLocationId, parsed.data.storagePath)) {
+      return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    }
 
     await updateAd(id, parsed.data);
 
@@ -427,13 +440,28 @@ vi.mock('@/modules/signage/displays.server', () => ({
   recordHeartbeat: vi.fn(),
   clearCommand: vi.fn(),
 }));
+vi.mock('@/modules/signage/ads.server', () => ({ getAdsByIds: vi.fn() }));
+vi.mock('@/modules/locations/locations.server', () => ({ getLocation: vi.fn() }));
+process.env.SIGNAGE_TOKEN_PEPPER ??= 'test-pepper';
 
 import { POST } from '@/app/api/display/playlist/route';
 
+const poll = () => ({ json: async () => ({ token: 't' }), headers: new Headers() }) as never;
+
 it('rejects a revoked token', async () => {
   vi.mocked(getDisplayByTokenHash).mockResolvedValue(null);
-  const req = { json: async () => ({ token: 'nope' }) } as never;
-  expect((await POST(req)).status).toBe(401);
+  expect((await POST(poll())).status).toBe(401);
+});
+
+it('resolves the playlist within the screen\'s venue', async () => {
+  vi.mocked(getDisplayByTokenHash).mockResolvedValue({
+    id: 'd-1', name: 'Lobby', locationId: 'loc-1', orientation: 'landscape',
+    active: true, deletedAt: null, mode: { kind: 'play' }, command: null,
+    adIds: ['a-1'],
+  } as never);
+  vi.mocked(getAdsByIds).mockResolvedValue([]);
+  expect((await POST(poll())).status).toBe(200);
+  expect(vi.mocked(getAdsByIds)).toHaveBeenCalledWith(['a-1'], 'loc-1');
 });
 ```
 
@@ -453,11 +481,20 @@ import { PUT } from '@/app/api/admin/ads/[id]/route';
 
 it('leaves the fields a PUT omits untouched', async () => {
   vi.mocked(getAd).mockResolvedValue(
-    { id: 'ad-1', active: false, locationIds: ['loc-1'], storagePath: 'ads/a.png' } as never);
+    { id: 'ad-1', active: false, locationIds: ['loc-1'], storagePath: 'ads/loc-1/a.png' } as never);
   const req = { json: async () => ({ name: 'Renamed' }) } as never;
   const res = await PUT(req, { params: Promise.resolve({ id: 'ad-1' }) });
   expect(res.status).toBe(200);
   expect(vi.mocked(updateAd)).toHaveBeenCalledWith('ad-1', { name: 'Renamed' });
+});
+
+it('refuses a file outside the venue\'s folder', async () => {
+  vi.mocked(getAd).mockResolvedValue(
+    { id: 'ad-1', active: true, locationIds: ['loc-1'], storagePath: 'ads/loc-1/a.png' } as never);
+  const req = { json: async () => ({ storagePath: 'ads/loc-2/theirs.mp4' }) } as never;
+  const res = await PUT(req, { params: Promise.resolve({ id: 'ad-1' }) });
+  expect(res.status).toBe(400);
+  expect(vi.mocked(deleteStorageObject)).not.toHaveBeenCalled();
 });
 ```
 

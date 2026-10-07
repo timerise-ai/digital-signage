@@ -83,34 +83,29 @@ down. Everything operational rides that channel.
 
 ## Hard rules
 
-> **Never style a device component through the host's CSS pipeline.** Use inline
-> styles: TV browsers run years behind current, and a stylesheet or purge step
-> must not be able to break a screen nobody is watching.
+> **Never style a device component through the host's CSS pipeline.** Use inline styles: TV browsers run years
+> behind current, and a stylesheet or purge step must not be able to break a screen nobody is watching.
 
-> **Never derive the poll interval from render state.** Poll on a stable
-> interval and read slide state from a ref. A timer whose effect depends on the
-> slide index is recreated on every slide, so a refresh longer than a slide
-> would never fire; the behaviour contract pins the poll to wall-clock time.
+> **Never derive the poll interval from render state.** Poll on a stable interval and read slide state from a
+> ref. A timer whose effect depends on the slide index is recreated on every slide, so a refresh longer than a
+> slide would never fire; the behaviour contract pins the poll to wall-clock time.
 
-> **Never issue one shared token to every screen.** Mint a per-display token at
-> pairing, store only its hash, and make revocation a single row update.
+> **Never issue one shared token to every screen.** Mint a per-display token at pairing, store only its hash,
+> and make revocation a single row update.
 
-> **Never trust a client-supplied tenant/location scope.** Derive it server-side
-> from the staff session or the display row the token resolves to, never from a
-> header, cookie, query parameter or default venue, and enforce it on every
-> `[id]` route, returning **404, not 403**, so ids cannot be probed.
+> **Never trust a client-supplied tenant/location scope.** Derive it server-side from the staff session or the
+> display row the token resolves to, never from a header, cookie, query parameter or default venue, and
+> enforce it on every `[id]` route, returning **404, not 403**, so ids cannot be probed.
 
-> **Never overload one boolean as both "paused" and "deleted".** Use `active` for
-> operator intent and a separate `deletedAt` for lifecycle, or a deleted item
-> reappears the moment someone toggles it back on.
+> **Never overload one boolean as both "paused" and "deleted".** Use `active` for operator intent and a
+> separate `deletedAt` for lifecycle, or a deleted item reappears the moment someone toggles it back on.
 
-> **Never start an image's duration timer before `onLoad`.** On a slow TV the
-> slide will otherwise expire before it is visible.
+> **Never start an image's duration timer before `onLoad`.** On a slow TV the slide will otherwise expire
+> before it is visible.
 
-> **Never carry durable screen state in a one-shot command.** Deliver blank and
-> takeover as `mode` on every poll so they survive the daily reload and a power
-> cycle; keep the ack-cleared channel for one-shots like reload, and persist a
-> reload's ack **before** reloading, or the server re-delivers it forever.
+> **Never carry durable screen state in a one-shot command.** Deliver blank and takeover as `mode` on every
+> poll so they survive the daily reload and a power cycle; keep the ack-cleared channel for one-shots like
+> reload, and persist a reload's ack **before** reloading, or the server re-delivers it forever.
 
 ## Quick start
 
@@ -119,12 +114,14 @@ down. Everything operational rides that channel.
    venue, a default PIN, a placeholder secret or fallback data for an unreachable database. A missing
    variable fails when its route runs, not at build. The package registry is not an external service:
    `npm install` what the templates import (`zod`, the backend's SDK, `vitest`), never a hand-written client.
+   Every code block is a template: write it to the path its first line names, changing only the renames
+   adaptation.md allows. A template you think is wrong is reported in your closing summary, not rewritten.
 1. Model the entities and pick array or junction table: [data-model.md](references/data-model.md).
 2. Create tables or collections, indexes, security rules and the media bucket:
    [firestore-backend.md](references/firestore-backend.md) or
    [supabase-backend.md](references/supabase-backend.md).
-3. Build the device and admin endpoints, one route file per row of the route table, with pairing and token
-   verification: [api-routes.md](references/api-routes.md).
+3. Build the device and admin endpoints, one route file per row of the route table and never a catch-all
+   route, with pairing and token verification: [api-routes.md](references/api-routes.md).
 4. Get a screen paired with [pairing.md](references/pairing.md), then drop in the player loop from
    [player-runtime.md](references/player-runtime.md).
 5. Build the back-office (media library, display list, playlist editor) from

@@ -95,9 +95,12 @@ export async function listAds(
  * Resolve exactly the ads a playlist references, preserving `adIds` order.
  * Chunked at 30, the `in` operator's limit. Never "list newest N and filter":
  * that silently drops older ads from playlists once the library outgrows N.
+ * Only ads of `locationId` resolve: nothing on the write path stops another
+ * venue's ad id being saved into a playlist, so the read path drops it.
  */
 export async function getAdsByIds(
   ids: string[],
+  locationId: string,
   db: Firestore = getAdminDb(),      // injectable, so it is testable without an emulator
 ): Promise<Ad[]> {
   if (ids.length === 0) return [];
@@ -113,10 +116,11 @@ export async function getAdsByIds(
   const byId = new Map<string, Ad>();
   for (const snap of snaps) for (const d of snap.docs) byId.set(d.id, toAd(d.id, d.data()));
 
-  // Order by adIds, keep duplicates, drop inactive/deleted/missing.
+  // Order by adIds, keep duplicates, drop inactive/deleted/missing/foreign.
   return ids
     .map((id) => byId.get(id))
-    .filter((ad): ad is Ad => ad != null && ad.active && ad.deletedAt == null);
+    .filter((ad): ad is Ad => ad != null && ad.active && ad.deletedAt == null
+      && ad.locationIds.includes(locationId));
 }
 
 export async function createAd(data: AdInput): Promise<Ad> {
@@ -170,6 +174,33 @@ export async function purgeAd(id: string): Promise<void> {
 
   if (storagePath) await deleteStorageObject(storagePath);
 }
+```
+
+Test resolution with a stub `db`, no emulator:
+
+```ts
+// modules/signage/ads.server.test.ts
+import { expect, it, vi } from 'vitest';
+import type { Firestore } from 'firebase-admin/firestore';
+
+vi.mock('server-only', () => ({}));
+vi.mock('@/lib/firebase-admin', () => ({ getAdminDb: vi.fn() }));
+import { getAdsByIds } from './ads.server';
+
+const doc = (id: string, locationIds: string[], active = true) => ({
+  id,
+  data: () => ({ name: id, type: 'image', url: 'u', duration: 5, active, deletedAt: null, locationIds }),
+});
+const stub = (docs: ReturnType<typeof doc>[]) =>
+  ({ collection: () => ({ where: () => ({ get: async () => ({ docs }) }) }) }) as unknown as Firestore;
+
+it('resolves in playlist order and drops paused and foreign ads', async () => {
+  const db = stub([
+    doc('a', ['loc-1']), doc('b', ['loc-1'], false), doc('c', ['loc-2']), doc('d', ['loc-1']),
+  ]);
+  const ads = await getAdsByIds(['d', 'a', 'b', 'c', 'd'], 'loc-1', db);
+  expect(ads.map((a) => a.id)).toEqual(['d', 'a', 'd']);
+});
 ```
 
 `arrayRemove` strips **all** occurrences, which is correct: a purged ad should
@@ -227,6 +258,7 @@ export interface UploadResult { url: string; storagePath: string }
 
 export async function uploadAdFile(
   file: File,
+  locationId: string,                 // the admin's active venue: the path's folder
   onProgress?: (pct: number) => void,
 ): Promise<UploadResult> {
   // Validate client-side too. Relying only on storage rules turns a 9 MB
@@ -239,7 +271,9 @@ export async function uploadAdFile(
   }
 
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const storagePath = `ads/${Date.now()}_${safeName}`;
+  // The server accepts only paths under the active venue's folder, so one
+  // venue's admin cannot save, and later purge, another venue's file.
+  const storagePath = `ads/${locationId}/${Date.now()}_${safeName}`;
   const task = uploadBytesResumable(ref(getFirebaseStorage(), storagePath), file, {
     contentType: file.type,
     cacheControl: 'public, max-age=31536000, immutable',  // path is unique per upload
@@ -274,8 +308,8 @@ service cloud.firestore {
 
 ```js
 // storage.rules
-match /ads/{fileName} {
-  allow read: if true;                                  // TVs are unauthenticated
+match /ads/{locationId}/{fileName} {
+  allow get: if true;                                   // TVs are unauthenticated; `read` would allow list
   // `staff` is a custom claim the host sets at sign-in. A bare
   // `request.auth != null` lets any signed-in customer fill a public bucket.
   allow create, update: if request.auth != null

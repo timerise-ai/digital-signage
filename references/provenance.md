@@ -172,6 +172,28 @@ The schema is now `AdFields` without defaults, which the PUT makes partial, and
 `AdBody`, which adds the defaults for create only. The route test in
 [api-routes.md](api-routes.md) fails on the old schema.
 
+Three more template defects were found by agent evals, each edited in by an
+agent and reproduced before it was adopted:
+
+- **The crossfade slot followed index parity.** A playlist edit that moved the
+  current slide to an index of the other parity remounted it in the other slot,
+  restarting a playing video, and the wrap of an odd-length loop landed in the
+  same slot and faded up from black. `activeSlot` now follows the epoch, which
+  changes exactly when the slide does; a player-machine test fails on the old
+  rule.
+- **A playlist could play another venue's ad.** The write policy on
+  `display_ads` and the admin routes check the display's venue, not the ad's,
+  and resolution did not check it either. `getAdsByIds` now takes the screen's
+  venue and drops foreign ads, and the Supabase resolution query carries the
+  same check; a service test and a route test fail on the old code.
+- **One venue's admin could delete another venue's media.** Upload paths were
+  flat and client-supplied, purge deletes the stored path with server
+  credentials, and the Supabase bucket's select policy let anyone list every
+  file. Uploads now land in `ads/<locationId>/`, both ad routes reject a path
+  outside the active venue's folder, the storage rules check the folder, and
+  the select policy is gone (a public bucket serves its URLs without one); a
+  route test fails on the old PUT.
+
 The earlier implementation also had no automated tests. The templates are
 structured so the two pieces most worth testing, playlist resolution and the
 player state machine, are pure functions callable without a database or a DOM.

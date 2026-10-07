@@ -90,6 +90,17 @@ export function playerReducer(state: PlayerState, event: PlayerEvent): PlayerSta
       return state;
   }
 }
+
+/**
+ * Which crossfade slot holds the slide on screen. By epoch, not index: the
+ * epoch changes exactly when the slide does, so a playlist edit that moves the
+ * current slide keeps it in its slot (no remount, a playing video keeps
+ * playing), and every advance flips the slot, including the wrap of an
+ * odd-length loop, where index parity would repeat and fade up from black.
+ */
+export function activeSlot(state: PlayerState): 0 | 1 {
+  return state.epoch % 2 === 0 ? 0 : 1;
+}
 ```
 
 **Why a reducer and not `setState`.** The tempting shortcut is to reconcile the
@@ -124,6 +135,22 @@ it('is pure under double invocation', () => {
     .toEqual(playerReducer(base, { type: 'advance' }));
   expect(base.index).toBe(0);                               // input never mutated
 });
+
+it('keeps the slide in its slot when a playlist edit moves it', () => {
+  const s0 = playerReducer(initialPlayerState,
+    { type: 'playlist', ads: [ad('a'), ad('b'), ad('c')] });
+  const s1 = playerReducer(s0, { type: 'advance' });        // 'b' at index 1
+  const s2 = playerReducer(s1, { type: 'playlist', ads: [ad('b'), ad('c')] });
+  expect(s2.index).toBe(0);                                 // moved
+  expect(activeSlot(s2)).toBe(activeSlot(s1));              // same slot, no remount
+
+  let s = s0;                                               // wraps a 3-slide loop
+  for (let i = 0; i < 3; i++) {
+    const n = playerReducer(s, { type: 'advance' });
+    expect(activeSlot(n)).not.toBe(activeSlot(s));
+    s = n;
+  }
+});
 ```
 
 ## The player
@@ -135,7 +162,7 @@ import { useEffect, useReducer, useRef, useState } from 'react';
 import type {
   AdItem, DisplayCommand, DisplayInfo, DisplayMode, PlaylistResponse,
 } from '@/types/signage';
-import { initialPlayerState, playerReducer } from './player-machine';
+import { activeSlot, initialPlayerState, playerReducer } from './player-machine';
 
 const POLL_INTERVAL_MS = 60_000;
 /** A hung fetch on a flaky venue network must not outlive the poll interval. */
@@ -373,14 +400,14 @@ export default function DisplayPlayer({ token, onUnauthorized }: Props) {
     ? state.ads[(state.index + 1) % state.ads.length]
     : null;
 
-  // Two slots alternating by parity: the outgoing slide stays mounted in the
+  // Two slots alternating by epoch parity: the outgoing slide stays mounted in the
   // other slot and fades out, giving a real crossfade instead of a fade up
   // from black. Each slot keeps the epoch it was filled with. Keying both
   // slots on the *current* epoch would remount the outgoing slide at opacity
   // 0 and cut the crossfade to a fade-from-black. Writing to the ref during
   // render is intentional and safe: it is derived state, read in the same
   // render.
-  const active = state.index % 2;
+  const active = activeSlot(state);
   slotsRef.current[active] = current ? { ad: current, epoch: state.epoch } : null;
   const slots = slotsRef.current;
 
