@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.11] - 2026-10-08
+
+Security fix release, from scoring the prompt-1 agent eval runs against 0.1.10. Each defect was found by an
+agent's edit and reproduced against the templates before the fix was adopted.
+
+### Security
+
+- One venue's admin could delete another venue's media. Upload paths were flat and chosen by the client, the
+  purge deletes the stored path with server credentials, and the Supabase bucket's select policy let anyone
+  list every file. Uploads now land in `ads/<locationId>/`; both ad routes reject a `storagePath` outside the
+  active venue's folder (`ownsStoragePath`); the Supabase insert policy and the Firebase Storage rules match
+  the folder; the select policy is removed and the Storage rule allows `get`, not `read`, so neither bucket
+  can be listed. Apps built from earlier versions should copy all four, and move existing objects or accept
+  that ads saved before the change keep their flat paths.
+- A playlist could play another venue's ad. Neither the `display_ads` write policy nor resolution checked the
+  ad's venue. `getAdsByIds(ids, locationId)` drops foreign ads, and the Supabase resolution query carries the
+  same `exists` on `ad_locations`. Apps built from earlier versions should add the venue check to their
+  resolution.
+
+### Fixed
+
+- The crossfade slot followed index parity, so a playlist edit that moved the current slide remounted it,
+  restarting a playing video, and the wrap of an odd-length loop faded from black. `activeSlot` in
+  `player-machine.ts` follows the epoch.
+- `uploadAdFile` takes `(file, locationId, onProgress?)` on both backends; the Supabase version took only the
+  file while the admin UI passed a progress callback.
+
+### Added
+
+- Tests that fail on the old code: the player-machine slot test, a Firestore `getAdsByIds` test with a stub
+  `db`, a playlist-route test that resolution receives the screen's venue, and a PUT test that refuses a
+  file outside the venue's folder.
+
+### Changed
+
+- `SKILL.md`: every code block is copied to the path its first line names, changing only the documented
+  renames, and a template that looks wrong is reported in the closing summary, not rewritten; the admin
+  routes are one file per row of the route table, never a catch-all. The hard rules are rewrapped to 110
+  columns to stay within the line budget.
+
 ## [0.1.10] - 2026-10-07
 
 Fix release, from scoring the prompt-1 agent eval runs against 0.1.9.
