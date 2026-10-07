@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.12] - 2026-10-08
+
+Security fix release, from scoring the prompt-1 agent eval runs against 0.1.11. Each defect was found by an
+agent's edit and reproduced against the templates before the fix was adopted.
+
+### Security
+
+- One venue's admin could place media in another venue's library: the ad routes took `locationIds` from the
+  request. `AdFields` no longer accepts it and the create route sets it to the active venue. Apps built from
+  earlier versions should stop reading `locationIds` from the request body.
+
+### Fixed
+
+- The display layout failed `next build`: it attached a context-menu handler in a server component. It is now
+  a client component.
+- The Supabase server client answered 500 when a token refresh landed during a Server Component render, since
+  its cookie writer called `cookies().set` there. The writer now ignores that case, as Supabase's Next.js
+  guide does, and relies on the session-refreshing proxy.
+- `components/admin/PlaylistEditor.tsx` did not compile. It imports `DisplayOrientation` and `fitWarning`,
+  which now lives in `lib/signage-fit.ts`, and defines `formatDuration`.
+
+### Added
+
+- A route test that the create route ignores a client-sent `locationIds`.
+
 ## [0.1.11] - 2026-10-08
 
 Security fix release, from scoring the prompt-1 agent eval runs against 0.1.10. Each defect was found by an
