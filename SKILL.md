@@ -117,13 +117,14 @@ down. Everything operational rides that channel.
 0. Fill in the seam contract and confirm the domain rename: [adaptation.md](references/adaptation.md). An app
    with no staff auth, venues or PIN gets them built for real on its backend, as that file says: never a demo
    venue, a default PIN, a placeholder secret or fallback data for an unreachable database. A missing
-   variable fails when its route runs, not at build.
+   variable fails when its route runs, not at build. The package registry is not an external service:
+   `npm install` what the templates import (`zod`, the backend's SDK, `vitest`), never a hand-written client.
 1. Model the entities and pick array or junction table: [data-model.md](references/data-model.md).
 2. Create tables or collections, indexes, security rules and the media bucket:
    [firestore-backend.md](references/firestore-backend.md) or
    [supabase-backend.md](references/supabase-backend.md).
-3. Build the device and admin endpoints, including pairing and token verification:
-   [api-routes.md](references/api-routes.md).
+3. Build the device and admin endpoints, one route file per row of the route table, with pairing and token
+   verification: [api-routes.md](references/api-routes.md).
 4. Get a screen paired with [pairing.md](references/pairing.md), then drop in the player loop from
    [player-runtime.md](references/player-runtime.md).
 5. Build the back-office (media library, display list, playlist editor) from
@@ -132,9 +133,10 @@ down. Everything operational rides that channel.
 6. Keep the measured numbers as the templates set them: the 10 MB upload limit, the 60 s poll, the 15 s video
    stall and the 3x-duration watchdog. Verify against the behaviour contract table in
    [player-runtime.md](references/player-runtime.md) (pull the network cable, delete the current ad mid-loop,
-   issue a reload) and ship the player-machine and route tests unmodified as regression cover.
-7. Hand over a tracked `.env.example` listing every variable the code reads, empty, and tell the operator
-   that `SIGNAGE_TOKEN_PEPPER` must be set in every environment and that rotating it unpairs every screen.
+   issue a reload) and ship the player-machine and route tests unmodified, on vitest, as regression cover.
+7. Hand over a tracked `.env.example` listing every variable the code reads, empty, and say in your closing
+   summary that `SIGNAGE_TOKEN_PEPPER` must be set in every environment and that rotating it unpairs every
+   screen.
 
 ## Reference directory
 

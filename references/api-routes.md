@@ -16,7 +16,10 @@ SIGNAGE_TOKEN_PEPPER=<32+ random bytes, base64>   # server-only, rotates all tok
 ```
 
 That is the only signage secret. `.env.example` lists it beside the backend's
-variables and `NEXT_PUBLIC_SIGNAGE_AGENT_VERSION`, every value empty. When it is
+variables under the names its reference reads (for Supabase,
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and
+`SUPABASE_SERVICE_ROLE_KEY`) and `NEXT_PUBLIC_SIGNAGE_AGENT_VERSION`, every value
+empty. When it is
 unset, `hashDisplayToken` throws at request time; nothing substitutes a default.
 
 There is deliberately **no** shared
@@ -254,19 +257,27 @@ import { z } from 'zod';
 import { requireStaffAuthWithLocation, StaffAuthError } from '@/lib/staff-auth';
 import { listAds, createAd } from '@/modules/signage/ads.server';
 
-const AdBody = z.object({
+// No defaults here: zod 4 applies a .default() even under .partial(), so a PUT
+// parsed from a schema with defaults resets every field the request leaves out.
+const AdFields = z.object({
   name: z.string().min(1).max(120),
   type: z.enum(['image', 'gif', 'video']),
   url: z.string().url(),
   storagePath: z.string().min(1),
   duration: z.number().int().min(1).max(600),
-  active: z.boolean().default(true),
-  locationIds: z.array(z.string()).default([]),
+  active: z.boolean(),
+  locationIds: z.array(z.string()),
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
   videoDuration: z.number().positive().optional(),
   fileSize: z.number().int().positive().optional(),
   mimeType: z.string().optional(),
+});
+
+// Create only.
+const AdBody = AdFields.extend({
+  active: AdFields.shape.active.default(true),
+  locationIds: AdFields.shape.locationIds.default([]),
 });
 
 export async function GET(req: NextRequest) {
@@ -325,7 +336,8 @@ export async function PUT(
     const existing = await getAd(id);
     requireLocationScope(activeLocationId, existing);   // throws 404 if out of scope
 
-    const parsed = AdBody.partial().safeParse(await req.json().catch(() => null));
+    // AdFields, not AdBody: a rename must not un-pause the ad or drop its venues.
+    const parsed = AdFields.partial().safeParse(await req.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
 
     await updateAd(id, parsed.data);
@@ -403,7 +415,11 @@ The last three are covered in [operations.md](operations.md).
 ## Testing
 
 Route handlers are plain functions: import and call them with a stub request,
-mocking the service module. No server, no emulator:
+mocking the service module. No server, no emulator. The tests run on vitest:
+`npm i -D vitest`, map `@/` to the project root and `server-only` to an empty
+module in `vitest.config.mts`, and wire `vitest run` to `npm test`. Never
+convert them to another runner or shim `expect`; a converted suite no longer
+proves what the shipped one does. A revoked token answers 401:
 
 ```ts
 vi.mock('@/modules/signage/displays.server', () => ({
@@ -418,6 +434,30 @@ it('rejects a revoked token', async () => {
   vi.mocked(getDisplayByTokenHash).mockResolvedValue(null);
   const req = { json: async () => ({ token: 'nope' }) } as never;
   expect((await POST(req)).status).toBe(401);
+});
+```
+
+A PUT changes only what it names. Renaming a paused ad must leave it paused and
+in its venues:
+
+```ts
+vi.mock('@/lib/staff-auth', () => ({
+  requireStaffAuthWithLocation: vi.fn(async () => ({ activeLocationId: 'loc-1' })),
+  requireLocationScope: vi.fn(),
+  StaffAuthError: class extends Error {},
+}));
+vi.mock('@/modules/signage/ads.server', () => ({ getAd: vi.fn(), updateAd: vi.fn() }));
+vi.mock('@/modules/signage/storage.server', () => ({ deleteStorageObject: vi.fn() }));
+
+import { PUT } from '@/app/api/admin/ads/[id]/route';
+
+it('leaves the fields a PUT omits untouched', async () => {
+  vi.mocked(getAd).mockResolvedValue(
+    { id: 'ad-1', active: false, locationIds: ['loc-1'], storagePath: 'ads/a.png' } as never);
+  const req = { json: async () => ({ name: 'Renamed' }) } as never;
+  const res = await PUT(req, { params: Promise.resolve({ id: 'ad-1' }) });
+  expect(res.status).toBe(200);
+  expect(vi.mocked(updateAd)).toHaveBeenCalledWith('ad-1', { name: 'Renamed' });
 });
 ```
 

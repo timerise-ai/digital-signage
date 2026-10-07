@@ -164,6 +164,14 @@ request header and answered a hard-coded PIN when the database was unreachable.
 [adaptation.md](adaptation.md) now says what to build when the host has none of
 them, and what never stands in for them.
 
+The ad PUT schema was fixed after an agent eval found it. The PUT parsed
+`AdBody.partial()`, and zod 4 applies a `.default()` even under `.partial()`,
+so a request that only renamed an ad also sent `active: true` and
+`locationIds: []`: a paused ad went back on air and dropped out of its venues.
+The schema is now `AdFields` without defaults, which the PUT makes partial, and
+`AdBody`, which adds the defaults for create only. The route test in
+[api-routes.md](api-routes.md) fails on the old schema.
+
 The earlier implementation also had no automated tests. The templates are
 structured so the two pieces most worth testing, playlist resolution and the
 player state machine, are pure functions callable without a database or a DOM.
