@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.10] - 2026-10-07
+
+Fix release, from scoring the prompt-1 agent eval runs against 0.1.9.
+
+### Fixed
+
+- Editing an ad reset the fields the request left out. The PUT in `references/api-routes.md` parsed
+  `AdBody.partial()`, and zod 4 applies a `.default()` even under `.partial()`, so renaming a paused ad sent
+  `active: true` and `locationIds: []`: the ad went back on air and dropped out of its venues. `AdFields` now
+  carries no defaults and the PUT parses `AdFields.partial()`; `AdBody` adds the defaults for create only. A
+  new route test fails on the old schema. Apps built from earlier versions should make the same split in
+  `app/api/admin/ads/route.ts` and `app/api/admin/ads/[id]/route.ts`.
+
+### Changed
+
+- The quick start in `SKILL.md` says the package registry is not an external service, so what the templates
+  import (`zod`, the backend's SDK, `vitest`) is installed rather than replaced by a hand-written client; that
+  each row of the route table is its own route file; that the tests ship unmodified on vitest; and that the
+  closing summary carries the `SIGNAGE_TOKEN_PEPPER` rule.
+- `references/api-routes.md` names the Supabase variables `.env.example` lists and the vitest setup the tests
+  run on, and forbids converting them to another runner.
+- `references/provenance.md` records the PUT fix under *Added*.
+
 ## [0.1.9] - 2026-10-07
 
 Wording release, from scoring the prompt-1 agent eval runs against 0.1.8. Templates are unchanged.
