@@ -1,5 +1,7 @@
 # digital-signage
 
+![digital-signage](.github/cover.svg)
+
 [![Agent Skills](https://img.shields.io/badge/Agent_Skills-open_format-059669)](https://agentskills.io)
 [![skills.sh](https://img.shields.io/badge/skills.sh-npx_skills_add-059669)](https://www.skills.sh)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-059669)](https://docs.claude.com/en/docs/claude-code/skills)
@@ -94,6 +96,7 @@ the skill stays cheap in context until a topic is actually needed.
 | `references/provenance.md` | The engineering ledger: what the audit of the earlier implementation changed and how the templates verify it, what was kept on purpose, and what is new in the skill |
 | `evals/` | The prompts an operator types after installing (`prompts.md`) and one file per agent eval: the skill installed into an empty Next.js app, one prompt, no help, then type-checked, built and tested |
 | `.github/workflows/agent-eval.yml` | Runs the agent evals on every published release through the index's reusable workflow; copied verbatim from the standard |
+| `.github/cover.svg` | The cover at the top of this file: the signage motif from the skill's page on timerise.ai |
 
 The backend seam runs through the reference set: `api-routes.md` and `operations.md` are written against
 Firestore as the canonical backend, and `supabase-backend.md` defines every substitution: the junction table
